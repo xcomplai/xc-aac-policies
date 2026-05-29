@@ -1,0 +1,22 @@
+---
+# Pinned rego source for the next release.
+#
+# Each bundle release of xc-aac-policies is built from a specific commit of
+# ynotbhatc/rego_policy_libraries. To cut a new bundle release:
+#
+#   1. Bump `source.ref` here to the desired rego commit SHA (or tag).
+#   2. Commit + push to main on this repo.
+#   3. Tag a release: `git tag vX.Y.Z && git push origin vX.Y.Z`
+#   4. The `release-bundle` workflow fires on the tag push, clones rego at the
+#      pinned ref, runs `opa build`, and creates the GitHub Release with the
+#      `xc-aac-policies-vX.Y.Z.tar.gz` asset (plus a SHA256 sidecar).
+#
+# The `aac-opa` Helm chart in xcomplai/xc-aac then bumps its default
+# `policies.bundle.https.resource` to the new tarball name when consumers are
+# ready to roll forward.
+
+source:
+  repo: ynotbhatc/rego_policy_libraries
+  # Pinned to the SHA used for the v1.0.0 release (built manually on 2026-05-28
+  # before this CI existed). Bump to a newer SHA or tag for the next release.
+  ref: 3797db9d9ff429767e22e65ed839ca3803313230

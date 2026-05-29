@@ -1,0 +1,139 @@
+name: Release bundle
+
+# Build an OPA bundle from a pinned rego_policy_libraries commit (see
+# policy-source.yaml) and upload it as a GitHub Release asset. Triggered on
+# tag push (vX.Y.Z) or manual dispatch.
+#
+# Workflow:
+#   1. Read source.ref from policy-source.yaml.
+#   2. Clone ynotbhatc/rego_policy_libraries at that ref.
+#   3. Install OPA CLI.
+#   4. Run `opa build -b . -o xc-aac-policies-${TAG}.tar.gz`.
+#   5. Compute SHA256.
+#   6. Create / update the GitHub Release for the tag, upload the tarball and
+#      sha256 sidecar.
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to create / overwrite (e.g. v1.1.0)'
+        required: true
+
+permissions:
+  contents: write   # to create the Release + upload assets
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this repo (for policy-source.yaml)
+        uses: actions/checkout@v4
+
+      - name: Resolve release tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Read pinned rego source ref
+        id: source
+        run: |
+          ref=$(python3 -c '
+          import yaml, pathlib
+          d = yaml.safe_load(pathlib.Path("policy-source.yaml").read_text())
+          print(d["source"]["ref"])
+          ')
+          repo=$(python3 -c '
+          import yaml, pathlib
+          d = yaml.safe_load(pathlib.Path("policy-source.yaml").read_text())
+          print(d["source"]["repo"])
+          ')
+          echo "ref=${ref}" >> "$GITHUB_OUTPUT"
+          echo "repo=${repo}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout rego source @ pinned ref
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.source.outputs.repo }}
+          ref: ${{ steps.source.outputs.ref }}
+          path: rego_src
+
+      - name: Install OPA
+        run: |
+          OPA_VERSION="${OPA_VERSION:-1.12.2}"
+          curl -fsSL -o /usr/local/bin/opa \
+            "https://openpolicyagent.org/downloads/v${OPA_VERSION}/opa_linux_amd64_static"
+          chmod +x /usr/local/bin/opa
+          opa version
+
+      - name: Build OPA bundle
+        id: build
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          BUNDLE="xc-aac-policies-${TAG}.tar.gz"
+          opa build -b rego_src -o "${BUNDLE}"
+          sha256sum "${BUNDLE}" | awk '{print $1}' > "${BUNDLE}.sha256"
+          ls -la "${BUNDLE}" "${BUNDLE}.sha256"
+          echo "bundle=${BUNDLE}" >> "$GITHUB_OUTPUT"
+          echo "sha256=$(cat ${BUNDLE}.sha256)" >> "$GITHUB_OUTPUT"
+
+      - name: Inspect bundle (sanity)
+        run: |
+          tar tzf "${{ steps.build.outputs.bundle }}" | wc -l
+          tar tzf "${{ steps.build.outputs.bundle }}" | head -5
+
+      - name: Create / update Release + upload assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          BUNDLE="${{ steps.build.outputs.bundle }}"
+          SHA="${{ steps.build.outputs.sha256 }}"
+          REGO_REPO="${{ steps.source.outputs.repo }}"
+          REGO_REF="${{ steps.source.outputs.ref }}"
+
+          NOTES=$(cat <<EOF
+          OPA bundle built from ${REGO_REPO} @ ${REGO_REF}.
+
+          SHA256: \`${SHA}\`
+
+          Consumed by the [\`aac-opa\` Helm chart](https://github.com/xcomplai/xc-aac/blob/main/deploy/helm/aac-opa/values.yaml) via OPA's HTTPS bundle service:
+
+          \`\`\`yaml
+          services:
+            aac-bundle-server:
+              url: https://github.com/xcomplai/xc-aac-policies/releases/download/${TAG}
+          bundles:
+            aac:
+              service: aac-bundle-server
+              resource: ${BUNDLE}
+              polling: { min_delay_seconds: 60, max_delay_seconds: 120 }
+              persist: true
+          persistence_directory: /tmp/opa-persist
+          \`\`\`
+          EOF
+          )
+
+          if gh release view "${TAG}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Release ${TAG} exists — uploading assets with --clobber"
+            gh release upload "${TAG}" \
+              "${BUNDLE}" "${BUNDLE}.sha256" \
+              --repo "${{ github.repository }}" --clobber
+            gh release edit "${TAG}" \
+              --repo "${{ github.repository }}" \
+              --notes "${NOTES}"
+          else
+            gh release create "${TAG}" \
+              --repo "${{ github.repository }}" \
+              --title "Policy bundle ${TAG}" \
+              --notes "${NOTES}" \
+              "${BUNDLE}#${BUNDLE}" \
+              "${BUNDLE}.sha256#${BUNDLE}.sha256"
+          fi
