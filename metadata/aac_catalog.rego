@@ -41,6 +41,11 @@ frameworks contains {
 	"metadata": data.nist_800_53.metadata,
 }
 
+frameworks contains {
+	"key": "cis_aws",
+	"metadata": data.cis_aws.metadata,
+}
+
 # Lookup by framework key — used by generic_framework_assessment.yml's
 # catalog-first dispatch path when it lands. The result is the metadata object
 # for the named framework, or undefined if the framework isn't in the catalog
