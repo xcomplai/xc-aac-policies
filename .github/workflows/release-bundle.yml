@@ -81,6 +81,17 @@ jobs:
         with:
           cosign-release: 'v2.4.1'
 
+      # Gate the release on the rego policy overlay's unit tests (Tier 3.J
+      # rules consuming fact_contract/v1). Tests live in rego-overlay/tests/
+      # and are NOT shipped in the bundle.
+      - name: Test rego policy overlay
+        run: |
+          if [ -d rego-overlay ] && compgen -G "rego-overlay/**/*_test.rego" >/dev/null 2>&1; then
+            opa test rego-overlay/ -v
+          else
+            echo "No rego overlay tests present — skipping."
+          fi
+
       # Transitional overlay: per-framework metadata + data.aac.catalog live in
       # ./metadata/ in THIS repo (xc-aac-policies) until upstream rego library
       # carries them. Copy alongside the rego source so the bundle includes
@@ -90,10 +101,25 @@ jobs:
           if [ -d metadata ] && compgen -G "metadata/*.rego" >/dev/null; then
             mkdir -p rego_src/aac_metadata_overlay
             cp metadata/*.rego rego_src/aac_metadata_overlay/
-            echo "Overlay files copied:"
+            echo "Metadata overlay files copied:"
             ls -1 rego_src/aac_metadata_overlay/
           else
             echo "No metadata overlay present — bundle ships rego_src only."
+          fi
+
+      # Transitional overlay: policy rules that consume the fact_contract/v1
+      # framework_facts (e.g. data.cis_rhel9.main.compliance_report — Tier 3.J)
+      # live in ./rego-overlay/ here until they land upstream in the rego
+      # library. Copy them alongside the rego source. See rego-overlay/README.md.
+      - name: Inject rego policy overlay into rego source
+        run: |
+          if [ -d rego-overlay ] && compgen -G "rego-overlay/*.rego" >/dev/null; then
+            mkdir -p rego_src/aac_rego_overlay
+            cp rego-overlay/*.rego rego_src/aac_rego_overlay/
+            echo "Rego policy overlay files copied:"
+            ls -1 rego_src/aac_rego_overlay/
+          else
+            echo "No rego policy overlay present."
           fi
 
       - name: Build OPA bundle
