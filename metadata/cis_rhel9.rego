@@ -51,6 +51,7 @@ default facts_schema := {
 			"enabled",
 		],
 		"filesystem_permissions": ["paths"],
+		"crypto": ["fips_enabled", "crypto_policy"],
 	},
 	"required_ansible_facts": [
 		"ansible_distribution",

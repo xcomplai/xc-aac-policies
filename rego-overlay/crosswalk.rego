@@ -48,6 +48,14 @@ checks := {
 		"title": "No legacy insecure services enabled",
 		"frameworks": {"cis_rhel9": "2.2.1", "stig_rhel9": "RHEL-09-215075", "nist_800_53": "CM-7"},
 	},
+	"fips_enabled": {
+		"title": "FIPS mode enabled",
+		"frameworks": {"nist_800_53": "SC-13", "stig_rhel9": "RHEL-09-671010"},
+	},
+	"crypto_policy_not_legacy": {
+		"title": "System-wide crypto policy is not legacy",
+		"frameworks": {"cis_rhel9": "1.10"},
+	},
 }
 
 # Flat triples — easy to query / join against stored results.

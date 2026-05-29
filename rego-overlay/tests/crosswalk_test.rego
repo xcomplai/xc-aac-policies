@@ -8,7 +8,7 @@ import data.aac.crosswalk
 
 # 8 checks: 3+3+3+3+3+3+2+3 = 23 (framework,control) mappings.
 test_mappings_count if {
-	count(crosswalk.mappings) == 23
+	count(crosswalk.mappings) == 26
 }
 
 test_control_for if {

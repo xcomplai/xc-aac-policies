@@ -37,9 +37,19 @@ _shadow_modes := {"0000", "0600", "0640"}
 controls := {
 	"1.2.1", "1.2.2",
 	"1.6.1.2", "1.6.1.3",
+	"1.10",
 	"5.1.22", "5.1.23",
 	"6.1.1", "6.1.2",
 	"2.2.1",
+}
+
+# ── Section 1.10 — system-wide crypto policy ──────────────────────────────────
+violation contains {
+	"control": "1.10",
+	"title": "Ensure system-wide crypto policy is not legacy",
+	"detail": sprintf("crypto policy=%v (want non-legacy, e.g. DEFAULT/FUTURE/FIPS)", [lib.crypto_policy(_ff)]),
+} if {
+	not lib.crypto_policy_not_legacy(_ff)
 }
 
 # ── Section 1.2 — software updates / package integrity ────────────────────────

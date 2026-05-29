@@ -26,8 +26,17 @@ _shadow_modes := {"0000", "0600", "0640"}
 # Technical control families evaluated here (the denominator).
 controls := {
 	"AC-3(4)", "AC-6", "IA-5",
-	"CM-6", "SC-28",
+	"CM-6", "SC-28", "SC-13",
 	"SI-2", "SI-7", "CM-7",
+}
+
+# SC-13 — cryptographic protection (FIPS mode enabled)
+violation contains {
+	"control": "SC-13",
+	"title": "Cryptographic protection — FIPS mode must be enabled",
+	"detail": sprintf("FIPS mode not enabled (crypto_policy=%v)", [lib.crypto_policy(_ff)]),
+} if {
+	not lib.fips_enabled(_ff)
 }
 
 # AC-3(4) — mandatory access control (SELinux enforcing)
