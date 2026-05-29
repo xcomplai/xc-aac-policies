@@ -74,3 +74,16 @@ insecure_services_enabled(ff) := {s |
 	some s in enabled_services(ff)
 	s in insecure_service_set
 }
+
+# ── Crypto (FIPS + system-wide crypto policy) ─────────────────────────────────
+fips_enabled(ff) if object.get(object.get(ff, "crypto", {}), "fips_enabled", false) == true
+
+crypto_policy(ff) := object.get(object.get(ff, "crypto", {}), "crypto_policy", "")
+
+# CIS: the system-wide crypto policy must not be LEGACY (an unset/empty policy is
+# also not ok — couldn't confirm a hardened policy).
+crypto_policy_not_legacy(ff) if {
+	p := upper(crypto_policy(ff))
+	p != ""
+	p != "LEGACY"
+}

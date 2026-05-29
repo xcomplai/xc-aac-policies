@@ -30,6 +30,16 @@ controls := {
 	"RHEL-09-431015",
 	"RHEL-09-232035", "RHEL-09-232010",
 	"RHEL-09-215010", "RHEL-09-215075",
+	"RHEL-09-671010",
+}
+
+# RHEL-09-671010 — RHEL 9 must implement a FIPS-validated crypto policy
+violation contains {
+	"control": "RHEL-09-671010",
+	"title": "RHEL 9 must enable FIPS mode",
+	"detail": sprintf("FIPS mode not enabled (crypto_policy=%v) — STIG requires FIPS", [lib.crypto_policy(_ff)]),
+} if {
+	not lib.fips_enabled(_ff)
 }
 
 # ── SSH ───────────────────────────────────────────────────────────────────────

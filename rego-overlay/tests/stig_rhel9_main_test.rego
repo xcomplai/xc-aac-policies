@@ -16,6 +16,7 @@ _clean := {"framework_facts": {
 		{"path": "/etc/passwd", "mode": "0644", "owner": "root", "exists": true},
 		{"path": "/etc/shadow", "mode": "0000", "owner": "root", "exists": true},
 	]},
+	"crypto": {"fips_enabled": true, "crypto_policy": "FIPS"},
 }}
 
 # A host that PASSES CIS but FAILS STIG: SELinux permissive (CIS 1.6.1.2 ok),
@@ -51,6 +52,6 @@ test_stig_stricter_than_cis if {
 
 test_total_controls_and_safe_empty if {
 	report := main.compliance_report with input as {}
-	report.total_controls == 7
+	report.total_controls == 8
 	is_boolean(report.compliant)
 }

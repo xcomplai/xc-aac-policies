@@ -42,6 +42,7 @@ default facts_schema := {
 		"selinux": ["status", "mode"],
 		"services": ["enabled"],
 		"filesystem_permissions": ["paths"],
+		"crypto": ["fips_enabled", "crypto_policy"],
 	},
 	"required_ansible_facts": [
 		"ansible_distribution",

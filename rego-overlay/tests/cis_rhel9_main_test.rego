@@ -16,6 +16,7 @@ _clean := {"framework_facts": {
 		{"path": "/etc/passwd", "mode": "0644", "owner": "root", "exists": true},
 		{"path": "/etc/shadow", "mode": "0000", "owner": "root", "exists": true},
 	]},
+	"crypto": {"fips_enabled": true, "crypto_policy": "DEFAULT"},
 }}
 
 _dirty := {"framework_facts": {
@@ -27,6 +28,7 @@ _dirty := {"framework_facts": {
 		{"path": "/etc/passwd", "mode": "0666", "owner": "root", "exists": true},
 		{"path": "/etc/shadow", "mode": "0644", "owner": "root", "exists": true},
 	]},
+	"crypto": {"fips_enabled": false, "crypto_policy": "LEGACY"},
 }}
 
 test_clean_host_is_compliant if {
@@ -40,7 +42,7 @@ test_clean_host_is_compliant if {
 test_dirty_host_is_not_compliant if {
 	report := main.compliance_report with input as _dirty
 	report.compliant == false
-	report.violation_count == 8
+	report.violation_count == 9
 }
 
 test_dirty_host_flags_permit_root_login if {
@@ -68,6 +70,6 @@ test_unset_empty_passwords_not_flagged if {
 # Missing framework_facts must not crash — returns a well-formed report.
 test_empty_input_is_safe if {
 	report := main.compliance_report with input as {}
-	report.total_controls == 9
+	report.total_controls == 10
 	is_boolean(report.compliant)
 }

@@ -15,6 +15,7 @@ _clean := {"framework_facts": {
 		{"path": "/etc/passwd", "mode": "0644", "owner": "root", "exists": true},
 		{"path": "/etc/shadow", "mode": "0000", "owner": "root", "exists": true},
 	]},
+	"crypto": {"fips_enabled": true, "crypto_policy": "FIPS"},
 }}
 
 _dirty := {"framework_facts": {
@@ -26,6 +27,7 @@ _dirty := {"framework_facts": {
 		{"path": "/etc/passwd", "mode": "0666", "owner": "root", "exists": true},
 		{"path": "/etc/shadow", "mode": "0644", "owner": "root", "exists": true},
 	]},
+	"crypto": {"fips_enabled": false},
 }}
 
 test_clean_host_is_compliant if {
@@ -41,11 +43,11 @@ test_dirty_host_flags_nist_families if {
 	report.compliant == false
 	controls := {v.control | some v in report.violations}
 	# every implemented family fires on the fully-bad host
-	controls == {"AC-3(4)", "AC-6", "IA-5", "CM-6", "SC-28", "SI-2", "SI-7", "CM-7"}
+	controls == {"AC-3(4)", "AC-6", "IA-5", "CM-6", "SC-28", "SC-13", "SI-2", "SI-7", "CM-7"}
 }
 
 test_total_controls_and_safe_empty if {
 	report := main.compliance_report with input as {}
-	report.total_controls == 8
+	report.total_controls == 9
 	is_boolean(report.compliant)
 }
