@@ -46,6 +46,11 @@ frameworks contains {
 	"metadata": data.cis_aws.metadata,
 }
 
+frameworks contains {
+	"key": "cis_windows_2022",
+	"metadata": data.cis_windows_2022.metadata,
+}
+
 # Lookup by framework key — used by generic_framework_assessment.yml's
 # catalog-first dispatch path when it lands. The result is the metadata object
 # for the named framework, or undefined if the framework isn't in the catalog
