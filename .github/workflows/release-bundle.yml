@@ -10,8 +10,9 @@ name: Release bundle
 #   3. Install OPA CLI.
 #   4. Run `opa build -b . -o xc-aac-policies-${TAG}.tar.gz`.
 #   5. Compute SHA256.
-#   6. Create / update the GitHub Release for the tag, upload the tarball and
-#      sha256 sidecar.
+#   6. Sign the tarball with sigstore/cosign (keyless, GitHub OIDC).
+#   7. Create / update the GitHub Release for the tag and upload the tarball,
+#      sha256 sidecar, .sig signature, and .crt certificate.
 
 on:
   push:
@@ -25,6 +26,7 @@ on:
 
 permissions:
   contents: write   # to create the Release + upload assets
+  id-token: write   # to mint the GitHub OIDC token cosign uses for keyless signing
 
 jobs:
   build-and-release:
@@ -73,6 +75,11 @@ jobs:
           chmod +x /usr/local/bin/opa
           opa version
 
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: 'v2.4.1'
+
       - name: Build OPA bundle
         id: build
         run: |
@@ -89,6 +96,40 @@ jobs:
           tar tzf "${{ steps.build.outputs.bundle }}" | wc -l
           tar tzf "${{ steps.build.outputs.bundle }}" | head -5
 
+      # Keyless signing with the workflow's GitHub OIDC identity (no PGP/cosign
+      # keys to manage). Produces an inline .sig + the leaf cert (.crt) used to
+      # mint the signing key. Consumers verify with `cosign verify-blob`
+      # gating on the workflow's OIDC identity (see README + chart's
+      # policies.bundle.verification placeholder).
+      - name: Sign bundle with cosign (keyless)
+        id: sign
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+          COSIGN_YES: "true"
+        run: |
+          BUNDLE="${{ steps.build.outputs.bundle }}"
+          cosign sign-blob \
+            --bundle "${BUNDLE}.cosign.bundle" \
+            --output-signature "${BUNDLE}.sig" \
+            --output-certificate "${BUNDLE}.crt" \
+            "${BUNDLE}"
+          echo "signature=${BUNDLE}.sig" >> "$GITHUB_OUTPUT"
+          echo "certificate=${BUNDLE}.crt" >> "$GITHUB_OUTPUT"
+          echo "cosign_bundle=${BUNDLE}.cosign.bundle" >> "$GITHUB_OUTPUT"
+          ls -la "${BUNDLE}".* | sed 's/  */ /g'
+
+      - name: Verify signature (self-check before publish)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          BUNDLE="${{ steps.build.outputs.bundle }}"
+          cosign verify-blob \
+            --signature "${BUNDLE}.sig" \
+            --certificate "${BUNDLE}.crt" \
+            --certificate-identity-regexp "https://github.com/${{ github.repository }}/.github/workflows/release-bundle.yml@refs/(tags|heads)/.*" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "${BUNDLE}"
+
       - name: Create / update Release + upload assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -103,6 +144,17 @@ jobs:
           OPA bundle built from ${REGO_REPO} @ ${REGO_REF}.
 
           SHA256: \`${SHA}\`
+
+          Sigstore-signed (keyless, GitHub OIDC). Verify with:
+
+          \`\`\`bash
+          cosign verify-blob \\\\
+            --signature ${BUNDLE}.sig \\\\
+            --certificate ${BUNDLE}.crt \\\\
+            --certificate-identity-regexp 'https://github.com/${{ github.repository }}/\\.github/workflows/release-bundle\\.yml@refs/tags/v.*' \\\\
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \\\\
+            ${BUNDLE}
+          \`\`\`
 
           Consumed by the [\`aac-opa\` Helm chart](https://github.com/xcomplai/xc-aac/blob/main/deploy/helm/aac-opa/values.yaml) via OPA's HTTPS bundle service:
 
@@ -125,6 +177,7 @@ jobs:
             echo "Release ${TAG} exists — uploading assets with --clobber"
             gh release upload "${TAG}" \
               "${BUNDLE}" "${BUNDLE}.sha256" \
+              "${BUNDLE}.sig" "${BUNDLE}.crt" "${BUNDLE}.cosign.bundle" \
               --repo "${{ github.repository }}" --clobber
             gh release edit "${TAG}" \
               --repo "${{ github.repository }}" \
@@ -135,5 +188,8 @@ jobs:
               --title "Policy bundle ${TAG}" \
               --notes "${NOTES}" \
               "${BUNDLE}#${BUNDLE}" \
-              "${BUNDLE}.sha256#${BUNDLE}.sha256"
+              "${BUNDLE}.sha256#${BUNDLE}.sha256" \
+              "${BUNDLE}.sig#${BUNDLE}.sig" \
+              "${BUNDLE}.crt#${BUNDLE}.crt" \
+              "${BUNDLE}.cosign.bundle#${BUNDLE}.cosign.bundle"
           fi
