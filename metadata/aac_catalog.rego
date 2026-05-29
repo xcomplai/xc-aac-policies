@@ -22,6 +22,11 @@ import rego.v1
 # Per-framework metadata that should appear in the catalog. Each entry pulls
 # from the corresponding `data.<framework>.metadata` rule and adds its key.
 frameworks contains {
+	"key": "cis_rhel8",
+	"metadata": data.cis_rhel8.metadata,
+}
+
+frameworks contains {
 	"key": "cis_rhel9",
 	"metadata": data.cis_rhel9.metadata,
 }
