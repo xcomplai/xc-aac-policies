@@ -81,6 +81,21 @@ jobs:
         with:
           cosign-release: 'v2.4.1'
 
+      # Transitional overlay: per-framework metadata + data.aac.catalog live in
+      # ./metadata/ in THIS repo (xc-aac-policies) until upstream rego library
+      # carries them. Copy alongside the rego source so the bundle includes
+      # data.<framework>.metadata + data.aac.catalog. See metadata/README.md.
+      - name: Inject metadata overlay into rego source
+        run: |
+          if [ -d metadata ] && compgen -G "metadata/*.rego" >/dev/null; then
+            mkdir -p rego_src/aac_metadata_overlay
+            cp metadata/*.rego rego_src/aac_metadata_overlay/
+            echo "Overlay files copied:"
+            ls -1 rego_src/aac_metadata_overlay/
+          else
+            echo "No metadata overlay present — bundle ships rego_src only."
+          fi
+
       - name: Build OPA bundle
         id: build
         run: |
