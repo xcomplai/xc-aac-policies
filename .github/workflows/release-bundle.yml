@@ -27,6 +27,7 @@ on:
 permissions:
   contents: write   # to create the Release + upload assets
   id-token: write   # to mint the GitHub OIDC token cosign uses for keyless signing
+  packages: write   # to push the OCI mirror to ghcr.io/xcomplai/xc-aac-policies
 
 jobs:
   build-and-release:
@@ -130,6 +131,45 @@ jobs:
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
             "${BUNDLE}"
 
+      # Mirror the bundle to ghcr.io as an OCI artifact so customers running
+      # Harbor/Artifactory/Nexus/internal-quay can `oras copy` it into their
+      # registry. The HTTPS GitHub Release remains the primary distribution
+      # path (OPA's HTTPS bundle plugin is mature; the OCI plugin is still
+      # quirky across registries — see policies/distribution memory note).
+      # Stays private by default per the xcomplai org's package-visibility
+      # policy; customers with read access to the org's packages can pull
+      # directly, or mirror into their own registry.
+      - name: Install oras
+        uses: oras-project/setup-oras@v1
+        with:
+          version: 1.2.0
+
+      - name: Push bundle as OCI artifact to ghcr.io
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          BUNDLE="${{ steps.build.outputs.bundle }}"
+          OCI_REPO="ghcr.io/${{ github.repository_owner }}/xc-aac-policies"
+
+          echo "${GH_TOKEN}" | oras login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+          # Push the tarball as the artifact's only layer. Use image-spec v1.0
+          # for the broadest registry compatibility; OCI image-spec v1.1
+          # artifacts are valid but newer registries (and some OPA OCI clients)
+          # handle the v1.0 manifest more uniformly.
+          oras push \
+            --image-spec v1.0 \
+            "${OCI_REPO}:${TAG},latest" \
+            "${BUNDLE}:application/vnd.oci.image.layer.v1.tar+gzip" \
+            --annotation "org.opencontainers.image.title=xc-aac-policies" \
+            --annotation "org.opencontainers.image.version=${TAG}" \
+            --annotation "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
+            --annotation "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            --annotation "org.opencontainers.image.description=AAC OPA policy bundle — mirror of the GitHub Release tarball"
+
+          echo "Pushed OCI mirror: ${OCI_REPO}:${TAG} (also tagged :latest)"
+
       - name: Create / update Release + upload assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -155,6 +195,8 @@ jobs:
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \\\\
             ${BUNDLE}
           \`\`\`
+
+          Also mirrored as an OCI artifact: \`ghcr.io/${{ github.repository_owner }}/xc-aac-policies:${TAG}\` (also tagged \`:latest\`). Customers running Harbor/Artifactory/Nexus can \`oras copy\` it into their registry. HTTPS remains the primary distribution path for OPA consumption.
 
           Consumed by the [\`aac-opa\` Helm chart](https://github.com/xcomplai/xc-aac/blob/main/deploy/helm/aac-opa/values.yaml) via OPA's HTTPS bundle service:
 
