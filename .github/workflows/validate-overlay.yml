@@ -1,0 +1,65 @@
+name: Validate overlay
+
+# Per-PR + push-to-main validation of the transitional rego/metadata OVERLAY
+# that lives in this repo (rego-overlay/ + metadata/). Closes the gap where the
+# overlay was only exercised at release-tag time by release-bundle.yml — now
+# every PR runs the same opa test + check + build before merge.
+#
+# Scope is OVERLAY-ONLY (no cross-repo checkout of the pinned rego source): it
+# validates the overlay self-consistently — the same opa test/check/build run
+# locally before opening a PR. Full source⊕overlay integration is still
+# validated at release time (release-bundle.yml) and the upstream rego SOURCE
+# has its own per-PR CI in ynotbhatc/rego_policy_libraries (opa-test.yml).
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: opa test + check + build (overlay)
+    runs-on: ubuntu-latest
+    env:
+      OPA_VERSION: '1.12.2'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install OPA
+        run: |
+          curl -fsSL -o /usr/local/bin/opa \
+            "https://openpolicyagent.org/downloads/v${OPA_VERSION}/opa_linux_amd64_static"
+          chmod +x /usr/local/bin/opa
+          opa version
+
+      # Unit tests for the overlay rules (data.<framework>.main, data.aac.lib.*,
+      # crosswalk). Mirrors release-bundle.yml's gate. Tests live in
+      # rego-overlay/tests/ and are not shipped in the bundle.
+      - name: Unit tests (rego-overlay/tests)
+        run: opa test rego-overlay/ -v
+
+      # Assemble the overlay in the SAME layout the bundle build uses
+      # (aac_rego_overlay/ + aac_metadata_overlay/) so check/build see the
+      # rules + per-framework metadata + data.aac.catalog together.
+      - name: Assemble overlay (bundle layout)
+        run: |
+          set -euo pipefail
+          mkdir -p overlay_check/aac_rego_overlay overlay_check/aac_metadata_overlay
+          cp rego-overlay/*.rego overlay_check/aac_rego_overlay/
+          if compgen -G "metadata/*.rego" >/dev/null; then
+            cp metadata/*.rego overlay_check/aac_metadata_overlay/
+          fi
+          echo "Assembled:"; find overlay_check -name '*.rego' | sort
+
+      - name: opa check (overlay)
+        run: opa check overlay_check
+
+      - name: opa build smoke test (overlay)
+        run: |
+          opa build -b overlay_check -o /tmp/overlay-bundle.tar.gz
+          ls -la /tmp/overlay-bundle.tar.gz
