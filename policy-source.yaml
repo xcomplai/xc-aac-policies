@@ -29,7 +29,8 @@
 
 source:
   repo: xcomplai/xc-rego-policies
-  # Same commit as the v1.0.0 release — the in-org mirror preserves full history,
-  # so this SHA is byte-identical to the prior ynotbhatc/rego_policy_libraries
-  # pin (just sourced in-org now). Bump to a newer SHA or tag for the next release.
-  ref: 3797db9d9ff429767e22e65ed839ca3803313230
+  # v2.1.0 — the in-org source now carries the AAC fact_contract/v1 layer (aac/)
+  # natively (the former in-repo overlay was collapsed into the source). Building
+  # from this ref means the bundle includes data.aac.lib.* + data.<fw>.main +
+  # data.aac.catalog with NO injection step. This ref backs bundle v2.0.0.
+  ref: v2.1.0
