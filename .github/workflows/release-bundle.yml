@@ -61,12 +61,18 @@ jobs:
           echo "ref=${ref}" >> "$GITHUB_OUTPUT"
           echo "repo=${repo}" >> "$GITHUB_OUTPUT"
 
+      # The rego source (xcomplai/xc-rego-policies, per policy-source.yaml) is a
+      # PRIVATE in-org repo, so the default GITHUB_TOKEN — scoped to THIS repo —
+      # cannot read it. Authenticate with POLICY_SOURCE_TOKEN: a fine-grained PAT
+      # with Contents:read on the source repo, stored as a repo/org secret here.
+      # Create it before the next tagged release, or this checkout 404s/403s.
       - name: Checkout rego source @ pinned ref
         uses: actions/checkout@v4
         with:
           repository: ${{ steps.source.outputs.repo }}
           ref: ${{ steps.source.outputs.ref }}
           path: rego_src
+          token: ${{ secrets.POLICY_SOURCE_TOKEN }}
 
       - name: Install OPA
         run: |
