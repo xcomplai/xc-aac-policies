@@ -1,8 +1,15 @@
 ---
 # Pinned rego source for the next release.
 #
-# Each bundle release of xc-aac-policies is built from a specific commit of
-# ynotbhatc/rego_policy_libraries. To cut a new bundle release:
+# The canonical source is now the IN-ORG private mirror
+# xcomplai/xc-rego-policies (history-preserving mirror of the upstream
+# collaborator repo ynotbhatc/rego_policy_libraries). The mirror's working
+# clone keeps `upstream` wired to ynotbhatc, so we reconcile their (slow)
+# changes in via `git fetch upstream && git merge` and contribute back via PRs
+# to upstream — at our own pace, never blocked.
+#
+# Each bundle release of xc-aac-policies is built from a specific commit of the
+# source repo below. To cut a new bundle release:
 #
 #   1. Bump `source.ref` here to the desired rego commit SHA (or tag).
 #   2. Commit + push to main on this repo.
@@ -11,12 +18,18 @@
 #      pinned ref, runs `opa build`, and creates the GitHub Release with the
 #      `xc-aac-policies-vX.Y.Z.tar.gz` asset (plus a SHA256 sidecar).
 #
+# NOTE: the source repo is PRIVATE, so the release-bundle workflow's checkout
+# authenticates with the `POLICY_SOURCE_TOKEN` repo secret (a fine-grained PAT
+# with Contents:read on xcomplai/xc-rego-policies). The secret MUST exist before
+# the next tagged release builds — see .github/workflows/release-bundle.yml.
+#
 # The `aac-opa` Helm chart in xcomplai/xc-aac then bumps its default
 # `policies.bundle.https.resource` to the new tarball name when consumers are
 # ready to roll forward.
 
 source:
-  repo: ynotbhatc/rego_policy_libraries
-  # Pinned to the SHA used for the v1.0.0 release (built manually on 2026-05-28
-  # before this CI existed). Bump to a newer SHA or tag for the next release.
+  repo: xcomplai/xc-rego-policies
+  # Same commit as the v1.0.0 release — the in-org mirror preserves full history,
+  # so this SHA is byte-identical to the prior ynotbhatc/rego_policy_libraries
+  # pin (just sourced in-org now). Bump to a newer SHA or tag for the next release.
   ref: 3797db9d9ff429767e22e65ed839ca3803313230
