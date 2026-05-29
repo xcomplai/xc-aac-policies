@@ -2,14 +2,19 @@
 
 OPA policy bundle releases for [xc-aac](https://github.com/xcomplai/xc-aac), built from the rego policy source at [ynotbhatc/rego_policy_libraries](https://github.com/ynotbhatc/rego_policy_libraries).
 
-Each tagged release publishes:
+Each tagged release publishes (HTTPS — primary distribution path):
 - `xc-aac-policies-vX.Y.Z.tar.gz` — the OPA bundle, consumable by OPA's HTTPS bundle service.
 - `xc-aac-policies-vX.Y.Z.tar.gz.sha256` — sidecar checksum for integrity verification.
 - `xc-aac-policies-vX.Y.Z.tar.gz.sig` — sigstore cosign signature (keyless, GitHub OIDC).
 - `xc-aac-policies-vX.Y.Z.tar.gz.crt` — Fulcio leaf certificate proving the OIDC identity that signed it.
 - `xc-aac-policies-vX.Y.Z.tar.gz.cosign.bundle` — combined sigstore bundle, also verifiable offline.
 
-The [`aac-opa` Helm chart](https://github.com/xcomplai/xc-aac/blob/main/deploy/helm/aac-opa/values.yaml) in xcomplai/xc-aac points at these release URLs by default.
+The same bundle is mirrored as an **OCI artifact**:
+- `ghcr.io/xcomplai/xc-aac-policies:vX.Y.Z` (also tagged `:latest`)
+
+Customers running Harbor / Artifactory / Nexus / internal-quay can `oras copy` the OCI artifact into their own registry — useful for air-gapped deploys or registry-mandated supply-chain policies. HTTPS remains the primary path for direct OPA consumption (OPA's HTTPS bundle plugin is more mature than the OCI plugin across registries; see the chart's `policies.bundle.source=oci` opt-in).
+
+The [`aac-opa` Helm chart](https://github.com/xcomplai/xc-aac/blob/main/deploy/helm/aac-opa/values.yaml) in xcomplai/xc-aac points at the HTTPS release URLs by default.
 
 ## Verify a release
 
