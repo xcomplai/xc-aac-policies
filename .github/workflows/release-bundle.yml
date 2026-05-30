@@ -94,23 +94,21 @@ jobs:
       # it up from the checked-out source. Source-side rego (incl. the aac/ unit
       # tests) is validated by xc-rego-policies' own opa-test CI on every PR + push.
 
-      - name: Build OPA bundles (combined + per-domain)
+      - name: Build OPA bundles (per-domain)
         id: build
         run: |
           TAG="${{ steps.tag.outputs.tag }}"
-          # 1) Combined bundle (backward-compat). The aac-opa chart migrates to
-          #    the per-domain bundles below; this is dropped in a later release
-          #    once every consumer has moved.
-          opa build -b rego_src -o "xc-aac-policies-${TAG}.tar.gz"
-          # 2) Per-domain bundles (security/compliance/ot) — one per OPA instance.
-          #    Driven by bundle-domains.yaml; computes explicit .manifest roots
-          #    (opa build does NOT auto-derive them). See scripts/.
+          # Per-domain bundles ONLY (security/compliance/ot) — one per OPA
+          # instance. The combined "everything" bundle was dropped at v2.2.0+
+          # (consumers migrated to per-domain via the aac-opa chart; v2.1.0 keeps
+          # its combined bundle as the rollback anchor). Driven by
+          # bundle-domains.yaml; computes explicit .manifest roots (opa build does
+          # NOT auto-derive them). See scripts/build-domain-bundles.sh.
           bash scripts/build-domain-bundles.sh rego_src . "${TAG}"
-          # sha256 sidecar for every bundle (re-stamps the domain ones identically)
+          # sha256 sidecar for every bundle (re-stamps the per-domain ones identically)
           for B in xc-aac-policies-*.tar.gz; do
             sha256sum "$B" | awk '{print $1}' > "$B.sha256"
           done
-          echo "combined=xc-aac-policies-${TAG}.tar.gz" >> "$GITHUB_OUTPUT"
           ls -la xc-aac-policies-*.tar.gz
 
       - name: Inspect bundles (sanity — file count + manifest roots)
@@ -186,8 +184,7 @@ jobs:
               --annotation "org.opencontainers.image.description=AAC OPA policy bundle — mirror of the GitHub Release tarball"
           }
 
-          push_one "xc-aac-policies-${TAG}.tar.gz" "${TAG},latest" "${TAG}"
-          echo "Pushed OCI: ${OCI_REPO}:${TAG} (+ :latest)"
+          # Per-domain only (combined bundle dropped at v2.2.0+).
           for D in security compliance ot; do
             B="xc-aac-policies-${D}-${TAG}.tar.gz"
             [ -f "$B" ] || continue
@@ -200,7 +197,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ steps.tag.outputs.tag }}"
-          COMBINED="${{ steps.build.outputs.combined }}"
           REGO_REPO="${{ steps.source.outputs.repo }}"
           REGO_REF="${{ steps.source.outputs.ref }}"
 
@@ -213,10 +209,9 @@ jobs:
           NOTES=$(cat <<EOF
           OPA policy bundles built from ${REGO_REPO} @ ${REGO_REF}, sigstore-signed (keyless, GitHub OIDC).
 
-          ## Bundles
+          ## Bundles (per-domain — the combined "everything" bundle was dropped at v2.2.0+)
           | Asset | For |
           |---|---|
-          | \`${COMBINED}\` | combined (all domains) — backward-compat; chart migrates to per-domain, then this is dropped |
           | \`xc-aac-policies-security-${TAG}.tar.gz\` | **opa-security** (:8181) — CIS/STIG/NIST + fact_contract \`aac/\` + threat detection |
           | \`xc-aac-policies-compliance-${TAG}.tar.gz\` | **opa-compliance** (:8182) — ISO/SOC2/PCI/SOX/GDPR/… + enforcement |
           | \`xc-aac-policies-ot-${TAG}.tar.gz\` | **opa-ot** (:8183) — NERC-CIP/AMI/IEC 62443 + governance |
@@ -231,7 +226,7 @@ jobs:
           \`\`\`
 
           ## OCI mirror (ghcr.io/${{ github.repository_owner }}/xc-aac-policies)
-          \`:${TAG}\` (+ \`:latest\`) = combined; \`:${TAG}-security\` / \`-compliance\` / \`-ot\` (+ \`:<domain>-latest\`) = per-domain. \`oras copy\` into Harbor/Artifactory/Nexus as needed; HTTPS remains primary.
+          \`:${TAG}-security\` / \`-compliance\` / \`-ot\` (+ \`:<domain>-latest\`) — one per domain. \`oras copy\` into Harbor/Artifactory/Nexus as needed; HTTPS remains primary.
 
           ## Chart consumption (per-domain — each OPA instance pulls its bundle)
           \`\`\`yaml
