@@ -1,0 +1,54 @@
+# Per-instance (per-domain) bundle map — Tier 2.E / opa-per-instance-scoping.
+#
+# AAC runs THREE OPA instances (security :8181 / compliance :8182 / ot :8183).
+# Instead of one mega-bundle (where chart-level `policies.bundle.roots` was
+# verified NOT to actually filter), the release CI builds ONE BUNDLE PER DOMAIN
+# from a directory-level partition of the rego source (xcomplai/xc-rego-policies),
+# and each OPA instance pulls only its own bundle → true isolation, smaller
+# reload, no cross-domain blast radius.
+#
+# The partition is a clean DIRECTORY split (verified: each domain bundle builds
+# with `opa build`, flagship frameworks land in the right domain):
+#
+# NOTE on a "common" bundle: NOT needed yet. Every shared piece (data.aac.lib.*,
+# data.aac.crosswalk, data.aac.catalog) and every fact_contract framework
+# (cis_rhel*/stig/nist/windows/docker/k8s/aws/crypto) is SECURITY-domain today,
+# so the whole aac/ layer ships in the security bundle. The day a compliance/ot
+# framework imports data.aac.lib.*, factor aac/lib + aac/crosswalk into a
+# `common` bundle (roots ["aac"]) loaded ALONGSIDE each domain bundle (OPA
+# supports multiple bundles per instance with DISJOINT roots) — built from the
+# SAME source release so the shared layer never drifts. Until then: 3 bundles.
+#
+# All bundles are built from ONE source release (same pinned ref + .manifest
+# revision) in one CI run — lockstep, so a shared package never skews between
+# bundles. Each domain's source dirs are disjoint → no root conflicts.
+
+domains:
+  # opa-security (:8181) — CIS benchmarks, STIGs, NIST/FISMA/FedRAMP/CMMC,
+  # OS/Cloud/Container security, threat detection, AND the whole fact_contract
+  # layer (aac/: libs + crosswalk + metadata + catalog + *_main rules).
+  security:
+    paths:
+      - aac
+      - benchmarks
+      - threat_detection
+      - frameworks/federal
+
+  # opa-compliance (:8182) — ISO/SOC2/Corporate, PCI/SOX, GDPR/HIPAA, DORA/NIS2/
+  # HITRUST/TISAX/NCSC-CAF/etc., sovereignty, and enforcement (Sentinel/Git/CICD).
+  compliance:
+    paths:
+      - frameworks/management
+      - frameworks/financial
+      - frameworks/privacy
+      - frameworks/compliance
+      - frameworks/regulatory
+      - frameworks/sovereignty
+      - enforcement
+
+  # opa-ot (:8183) — NERC-CIP, AMI, IEC 62443, NIST 800-82, and governance
+  # (AI governance, MCP).
+  ot:
+    paths:
+      - frameworks/critical_infrastructure
+      - governance
