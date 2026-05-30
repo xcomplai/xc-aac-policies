@@ -94,55 +94,63 @@ jobs:
       # it up from the checked-out source. Source-side rego (incl. the aac/ unit
       # tests) is validated by xc-rego-policies' own opa-test CI on every PR + push.
 
-      - name: Build OPA bundle
+      - name: Build OPA bundles (combined + per-domain)
         id: build
         run: |
           TAG="${{ steps.tag.outputs.tag }}"
-          BUNDLE="xc-aac-policies-${TAG}.tar.gz"
-          opa build -b rego_src -o "${BUNDLE}"
-          sha256sum "${BUNDLE}" | awk '{print $1}' > "${BUNDLE}.sha256"
-          ls -la "${BUNDLE}" "${BUNDLE}.sha256"
-          echo "bundle=${BUNDLE}" >> "$GITHUB_OUTPUT"
-          echo "sha256=$(cat ${BUNDLE}.sha256)" >> "$GITHUB_OUTPUT"
+          # 1) Combined bundle (backward-compat). The aac-opa chart migrates to
+          #    the per-domain bundles below; this is dropped in a later release
+          #    once every consumer has moved.
+          opa build -b rego_src -o "xc-aac-policies-${TAG}.tar.gz"
+          # 2) Per-domain bundles (security/compliance/ot) — one per OPA instance.
+          #    Driven by bundle-domains.yaml; computes explicit .manifest roots
+          #    (opa build does NOT auto-derive them). See scripts/.
+          bash scripts/build-domain-bundles.sh rego_src . "${TAG}"
+          # sha256 sidecar for every bundle (re-stamps the domain ones identically)
+          for B in xc-aac-policies-*.tar.gz; do
+            sha256sum "$B" | awk '{print $1}' > "$B.sha256"
+          done
+          echo "combined=xc-aac-policies-${TAG}.tar.gz" >> "$GITHUB_OUTPUT"
+          ls -la xc-aac-policies-*.tar.gz
 
-      - name: Inspect bundle (sanity)
+      - name: Inspect bundles (sanity — file count + manifest roots)
         run: |
-          tar tzf "${{ steps.build.outputs.bundle }}" | wc -l
-          tar tzf "${{ steps.build.outputs.bundle }}" | head -5
+          for B in xc-aac-policies-*.tar.gz; do
+            roots=$(tar xzOf "$B" /.manifest 2>/dev/null | python3 -c "import sys,json;print(len(json.load(sys.stdin).get('roots',[])))" 2>/dev/null || echo '?')
+            echo "  $B — $(tar tzf "$B" | wc -l) files, ${roots} roots"
+          done
 
       # Keyless signing with the workflow's GitHub OIDC identity (no PGP/cosign
       # keys to manage). Produces an inline .sig + the leaf cert (.crt) used to
       # mint the signing key. Consumers verify with `cosign verify-blob`
       # gating on the workflow's OIDC identity (see README + chart's
       # policies.bundle.verification placeholder).
-      - name: Sign bundle with cosign (keyless)
-        id: sign
+      - name: Sign bundles with cosign (keyless)
         env:
           COSIGN_EXPERIMENTAL: "1"
           COSIGN_YES: "true"
         run: |
-          BUNDLE="${{ steps.build.outputs.bundle }}"
-          cosign sign-blob \
-            --bundle "${BUNDLE}.cosign.bundle" \
-            --output-signature "${BUNDLE}.sig" \
-            --output-certificate "${BUNDLE}.crt" \
-            "${BUNDLE}"
-          echo "signature=${BUNDLE}.sig" >> "$GITHUB_OUTPUT"
-          echo "certificate=${BUNDLE}.crt" >> "$GITHUB_OUTPUT"
-          echo "cosign_bundle=${BUNDLE}.cosign.bundle" >> "$GITHUB_OUTPUT"
-          ls -la "${BUNDLE}".* | sed 's/  */ /g'
+          for B in xc-aac-policies-*.tar.gz; do
+            cosign sign-blob \
+              --bundle "${B}.cosign.bundle" \
+              --output-signature "${B}.sig" \
+              --output-certificate "${B}.crt" \
+              "${B}"
+          done
+          ls -la xc-aac-policies-*.tar.gz.* | sed 's/  */ /g'
 
-      - name: Verify signature (self-check before publish)
+      - name: Verify signatures (self-check before publish)
         env:
           COSIGN_EXPERIMENTAL: "1"
         run: |
-          BUNDLE="${{ steps.build.outputs.bundle }}"
-          cosign verify-blob \
-            --signature "${BUNDLE}.sig" \
-            --certificate "${BUNDLE}.crt" \
-            --certificate-identity-regexp "https://github.com/${{ github.repository }}/.github/workflows/release-bundle.yml@refs/(tags|heads)/.*" \
-            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-            "${BUNDLE}"
+          for B in xc-aac-policies-*.tar.gz; do
+            cosign verify-blob \
+              --signature "${B}.sig" \
+              --certificate "${B}.crt" \
+              --certificate-identity-regexp "https://github.com/${{ github.repository }}/.github/workflows/release-bundle.yml@refs/(tags|heads)/.*" \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+              "${B}"
+          done
 
       # Mirror the bundle to ghcr.io as an OCI artifact so customers running
       # Harbor/Artifactory/Nexus/internal-quay can `oras copy` it into their
@@ -157,94 +165,88 @@ jobs:
         with:
           version: 1.2.0
 
-      - name: Push bundle as OCI artifact to ghcr.io
+      - name: Push bundles as OCI artifacts to ghcr.io
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ steps.tag.outputs.tag }}"
-          BUNDLE="${{ steps.build.outputs.bundle }}"
           OCI_REPO="ghcr.io/${{ github.repository_owner }}/xc-aac-policies"
-
           echo "${GH_TOKEN}" | oras login ghcr.io -u "${{ github.actor }}" --password-stdin
 
-          # Push the tarball as the artifact's only layer. Use image-spec v1.0
-          # for the broadest registry compatibility; OCI image-spec v1.1
-          # artifacts are valid but newer registries (and some OPA OCI clients)
-          # handle the v1.0 manifest more uniformly.
-          oras push \
-            --image-spec v1.0 \
-            "${OCI_REPO}:${TAG},latest" \
-            "${BUNDLE}:application/vnd.oci.image.layer.v1.tar+gzip" \
-            --annotation "org.opencontainers.image.title=xc-aac-policies" \
-            --annotation "org.opencontainers.image.version=${TAG}" \
-            --annotation "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
-            --annotation "org.opencontainers.image.revision=${GITHUB_SHA}" \
-            --annotation "org.opencontainers.image.description=AAC OPA policy bundle — mirror of the GitHub Release tarball"
+          # image-spec v1.0 for the broadest registry / OPA-OCI-client compat.
+          # Combined bundle → :TAG + :latest. Per-domain bundle → :TAG-<domain>
+          # + :<domain>-latest (each OPA instance pulls its own domain tag).
+          push_one() {  # $1=bundle file  $2=comma-separated tags  $3=version label
+            oras push --image-spec v1.0 "${OCI_REPO}:$2" \
+              "$1:application/vnd.oci.image.layer.v1.tar+gzip" \
+              --annotation "org.opencontainers.image.title=xc-aac-policies" \
+              --annotation "org.opencontainers.image.version=$3" \
+              --annotation "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
+              --annotation "org.opencontainers.image.revision=${GITHUB_SHA}" \
+              --annotation "org.opencontainers.image.description=AAC OPA policy bundle — mirror of the GitHub Release tarball"
+          }
 
-          echo "Pushed OCI mirror: ${OCI_REPO}:${TAG} (also tagged :latest)"
+          push_one "xc-aac-policies-${TAG}.tar.gz" "${TAG},latest" "${TAG}"
+          echo "Pushed OCI: ${OCI_REPO}:${TAG} (+ :latest)"
+          for D in security compliance ot; do
+            B="xc-aac-policies-${D}-${TAG}.tar.gz"
+            [ -f "$B" ] || continue
+            push_one "$B" "${TAG}-${D},${D}-latest" "${TAG}-${D}"
+            echo "Pushed OCI: ${OCI_REPO}:${TAG}-${D} (+ :${D}-latest)"
+          done
 
       - name: Create / update Release + upload assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ steps.tag.outputs.tag }}"
-          BUNDLE="${{ steps.build.outputs.bundle }}"
-          SHA="${{ steps.build.outputs.sha256 }}"
+          COMBINED="${{ steps.build.outputs.combined }}"
           REGO_REPO="${{ steps.source.outputs.repo }}"
           REGO_REF="${{ steps.source.outputs.ref }}"
 
+          # Every bundle + its sidecars (.sha256/.sig/.crt/.cosign.bundle).
+          shopt -s nullglob
+          ASSETS=( xc-aac-policies-*.tar.gz xc-aac-policies-*.tar.gz.sha256 \
+                   xc-aac-policies-*.tar.gz.sig xc-aac-policies-*.tar.gz.crt \
+                   xc-aac-policies-*.tar.gz.cosign.bundle )
+
           NOTES=$(cat <<EOF
-          OPA bundle built from ${REGO_REPO} @ ${REGO_REF}.
+          OPA policy bundles built from ${REGO_REPO} @ ${REGO_REF}, sigstore-signed (keyless, GitHub OIDC).
 
-          SHA256: \`${SHA}\`
+          ## Bundles
+          | Asset | For |
+          |---|---|
+          | \`${COMBINED}\` | combined (all domains) — backward-compat; chart migrates to per-domain, then this is dropped |
+          | \`xc-aac-policies-security-${TAG}.tar.gz\` | **opa-security** (:8181) — CIS/STIG/NIST + fact_contract \`aac/\` + threat detection |
+          | \`xc-aac-policies-compliance-${TAG}.tar.gz\` | **opa-compliance** (:8182) — ISO/SOC2/PCI/SOX/GDPR/… + enforcement |
+          | \`xc-aac-policies-ot-${TAG}.tar.gz\` | **opa-ot** (:8183) — NERC-CIP/AMI/IEC 62443 + governance |
 
-          Sigstore-signed (keyless, GitHub OIDC). Verify with:
+          Each per-domain bundle carries explicit \`.manifest\` roots scoped to its domain (true per-instance scoping — chart-level \`policies.bundle.roots\` does NOT filter). Every \`.tar.gz\` has \`.sha256/.sig/.crt/.cosign.bundle\` sidecars.
 
+          ## Verify (any bundle B)
           \`\`\`bash
-          cosign verify-blob \\\\
-            --signature ${BUNDLE}.sig \\\\
-            --certificate ${BUNDLE}.crt \\\\
+          cosign verify-blob --signature B.sig --certificate B.crt \\\\
             --certificate-identity-regexp 'https://github.com/${{ github.repository }}/\\.github/workflows/release-bundle\\.yml@refs/tags/v.*' \\\\
-            --certificate-oidc-issuer https://token.actions.githubusercontent.com \\\\
-            ${BUNDLE}
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com  B
           \`\`\`
 
-          Also mirrored as an OCI artifact: \`ghcr.io/${{ github.repository_owner }}/xc-aac-policies:${TAG}\` (also tagged \`:latest\`). Customers running Harbor/Artifactory/Nexus can \`oras copy\` it into their registry. HTTPS remains the primary distribution path for OPA consumption.
+          ## OCI mirror (ghcr.io/${{ github.repository_owner }}/xc-aac-policies)
+          \`:${TAG}\` (+ \`:latest\`) = combined; \`:${TAG}-security\` / \`-compliance\` / \`-ot\` (+ \`:<domain>-latest\`) = per-domain. \`oras copy\` into Harbor/Artifactory/Nexus as needed; HTTPS remains primary.
 
-          Consumed by the [\`aac-opa\` Helm chart](https://github.com/xcomplai/xc-aac/blob/main/deploy/helm/aac-opa/values.yaml) via OPA's HTTPS bundle service:
-
+          ## Chart consumption (per-domain — each OPA instance pulls its bundle)
           \`\`\`yaml
-          services:
-            aac-bundle-server:
-              url: https://github.com/xcomplai/xc-aac-policies/releases/download/${TAG}
-          bundles:
-            aac:
-              service: aac-bundle-server
-              resource: ${BUNDLE}
-              polling: { min_delay_seconds: 60, max_delay_seconds: 120 }
-              persist: true
-          persistence_directory: /tmp/opa-persist
+          # opa-security (:8181)
+          services: { aac-bundle-server: { url: https://github.com/${{ github.repository }}/releases/download/${TAG} } }
+          bundles:  { aac: { service: aac-bundle-server, resource: xc-aac-policies-security-${TAG}.tar.gz, persist: true } }
           \`\`\`
           EOF
           )
 
           if gh release view "${TAG}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            echo "Release ${TAG} exists — uploading assets with --clobber"
-            gh release upload "${TAG}" \
-              "${BUNDLE}" "${BUNDLE}.sha256" \
-              "${BUNDLE}.sig" "${BUNDLE}.crt" "${BUNDLE}.cosign.bundle" \
-              --repo "${{ github.repository }}" --clobber
-            gh release edit "${TAG}" \
-              --repo "${{ github.repository }}" \
-              --notes "${NOTES}"
+            echo "Release ${TAG} exists — uploading ${#ASSETS[@]} assets with --clobber"
+            gh release upload "${TAG}" "${ASSETS[@]}" --repo "${{ github.repository }}" --clobber
+            gh release edit "${TAG}" --repo "${{ github.repository }}" --notes "${NOTES}"
           else
-            gh release create "${TAG}" \
-              --repo "${{ github.repository }}" \
-              --title "Policy bundle ${TAG}" \
-              --notes "${NOTES}" \
-              "${BUNDLE}#${BUNDLE}" \
-              "${BUNDLE}.sha256#${BUNDLE}.sha256" \
-              "${BUNDLE}.sig#${BUNDLE}.sig" \
-              "${BUNDLE}.crt#${BUNDLE}.crt" \
-              "${BUNDLE}.cosign.bundle#${BUNDLE}.cosign.bundle"
+            gh release create "${TAG}" --repo "${{ github.repository }}" \
+              --title "Policy bundles ${TAG}" --notes "${NOTES}" "${ASSETS[@]}"
           fi
