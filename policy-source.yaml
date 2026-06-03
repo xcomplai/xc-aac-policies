@@ -29,8 +29,8 @@
 
 source:
   repo: xcomplai/xc-rego-policies
-  # v2.1.0 — the in-org source now carries the AAC fact_contract/v1 layer (aac/)
-  # natively (the former in-repo overlay was collapsed into the source). Building
-  # from this ref means the bundle includes data.aac.lib.* + data.<fw>.main +
-  # data.aac.catalog with NO injection step. This ref backs bundle v2.0.0.
-  ref: v2.2.2
+  # The in-org source carries the AAC fact_contract/v1 layer (aac/) natively, so
+  # the bundle includes data.aac.lib.* + data.<fw>.main + data.aac.catalog with NO
+  # injection step. v2.3.0 adds derived control-coverage (controls.implemented /
+  # total) to each fact-contract framework's metadata → surfaced via data.aac.catalog.
+  ref: v2.3.0
