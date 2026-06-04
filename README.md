@@ -14,6 +14,17 @@ The same bundle is mirrored as an **OCI artifact**:
 
 Customers running Harbor / Artifactory / Nexus / internal-quay can `oras copy` the OCI artifact into their own registry — useful for air-gapped deploys or registry-mandated supply-chain policies. HTTPS remains the primary path for direct OPA consumption (OPA's HTTPS bundle plugin is more mature than the OCI plugin across registries; see the chart's `policies.bundle.source=oci` opt-in).
 
+> **Why registries report this artifact as "not supported by scanning" (this is expected).**
+> The OCI artifact is a *data bundle*, not a runnable container image: its manifest config
+> media type is `application/vnd.unknown.config.v1+json` and its single layer is just the
+> gzipped `.rego`/`data.json` bundle — no OS filesystem, no installed packages, no compiled
+> binaries. Image vulnerability scanners (quay's Clair, Harbor's Trivy, etc.) only analyze
+> container images with a recognized package database (RPM/dpkg/pip/npm/Go), so they
+> correctly skip this artifact with a "not supported" / "unsupported manifest" status. It is
+> **not** a coverage gap — a Rego policy bundle has no CVE surface. The supply-chain check for
+> this artifact is **checksum + cosign signature verification** (see *Verify a release* below),
+> not image scanning.
+
 The [`aac-opa` Helm chart](https://github.com/xcomplai/xc-aac/blob/main/deploy/helm/aac-opa/values.yaml) in xcomplai/xc-aac points at the HTTPS release URLs by default.
 
 ## Verify a release
