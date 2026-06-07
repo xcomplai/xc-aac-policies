@@ -29,13 +29,24 @@
 # revision) in one CI run — lockstep, so a shared package never skews between
 # bundles. Each domain's source dirs are disjoint → no root conflicts.
 
+# The fact_contract layer (aac/) is NOT a domain path here. The build injects it
+# per Option F (self-contained domain bundles): the SHARED aac pieces
+# (aac/rego/lib_*.rego + aac/rego/crosswalk.rego + aac/metadata/aac_catalog.rego)
+# go into EVERY domain bundle, and each framework's main/metadata/registration
+# (aac/rego/<fw>_main.rego, aac/metadata/<fw>.rego, aac/metadata/<fw>_catalog.rego)
+# is routed to the bundle named by its own `metadata.domain`. So a compliance
+# framework (e.g. iso27001) lands in the COMPLIANCE bundle (:8182) where queries
+# route, not in security — and its main still compiles because the shared lib it
+# imports travels with it. Rego function libs CANNOT be split across separately
+# built bundles (opa build strict-compiles each), so the lib is duplicated across
+# the 3 bundles — built lockstep from one source release, so it never drifts.
+# See scripts/build-domain-bundles.sh (the aac-injection step).
 domains:
   # opa-security (:8181) — CIS benchmarks, STIGs, NIST/FISMA/FedRAMP/CMMC,
-  # OS/Cloud/Container security, threat detection, AND the whole fact_contract
-  # layer (aac/: libs + crosswalk + metadata + catalog + *_main rules).
+  # OS/Cloud/Container security, threat detection. (Security fact_contract
+  # frameworks — cis_*/stig/nist — are injected by metadata.domain=security.)
   security:
     paths:
-      - aac
       - benchmarks
       - threat_detection
       - frameworks/federal
