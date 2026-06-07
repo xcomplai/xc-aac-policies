@@ -42,6 +42,55 @@ for D in $domains; do
   done
   [ "$found" -gt 0 ] || { echo "::error::domain '$D' has no source paths present"; exit 1; }
 
+  # ── Option F: inject the fact_contract layer (aac/) into this bundle ─────────
+  # Shared aac (lib_*, crosswalk, catalog aggregator) → EVERY bundle; each
+  # framework's main/metadata/registration → the bundle named by its
+  # metadata.domain. The shared lib travels with the mains so the bundle compiles
+  # standalone (rego function libs can't be split across separately-built
+  # bundles). Lib duplication across bundles is intentional (lockstep build → no
+  # drift). See bundle-domains.yaml.
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    mkdir -p "$asm/$(dirname "$rel")"
+    cp "$SRC/$rel" "$asm/$rel"
+  done < <(python3 - "$SRC" "$D" <<'PY'
+import sys, glob, os, re
+src, domain = sys.argv[1], sys.argv[2]
+aac = os.path.join(src, "aac")
+out = []
+# Shared: libs + crosswalk + the catalog aggregator → every bundle.
+shared = glob.glob(os.path.join(aac, "rego", "lib_*.rego")) + [
+    os.path.join(aac, "rego", "crosswalk.rego"),
+    os.path.join(aac, "metadata", "aac_catalog.rego"),
+]
+for p in shared:
+    if os.path.exists(p):
+        out.append(os.path.relpath(p, src))
+# Per-framework: route main + metadata + registration by metadata.domain.
+DOM = re.compile(r'default\s+domain\s*:=\s*"([^"]+)"')
+KEY = re.compile(r'default\s+framework_key\s*:=\s*"([^"]+)"')
+for meta in sorted(glob.glob(os.path.join(aac, "metadata", "*.rego"))):
+    b = os.path.basename(meta)
+    if b == "aac_catalog.rego" or b.endswith("_catalog.rego"):
+        continue  # aggregator + registrations handled separately
+    txt = open(meta, encoding="utf-8", errors="ignore").read()
+    md = DOM.search(txt)
+    if not md or md.group(1) != domain:
+        continue
+    fk = KEY.search(txt)
+    fw = fk.group(1) if fk else b[:-5]
+    for cand in [
+        os.path.join(aac, "rego", fw + "_main.rego"),
+        meta,
+        os.path.join(aac, "metadata", fw + "_catalog.rego"),
+    ]:
+        if os.path.exists(cand):
+            out.append(os.path.relpath(cand, src))
+for f in out:
+    print(f)
+PY
+)
+
   # Write an explicit .manifest with revision + the per-namespace ROOTS this
   # bundle owns (the top-level data namespace of every package it contains, e.g.
   # cis_rhel9 / aac / iso27001). opa build does NOT auto-derive roots — without
