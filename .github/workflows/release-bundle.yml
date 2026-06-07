@@ -74,6 +74,15 @@ jobs:
           path: rego_src
           token: ${{ secrets.POLICY_SOURCE_TOKEN }}
 
+      # Guard the per-domain partition BEFORE building: fail fast if any domain's
+      # rego references a PACKAGE owned by another domain (e.g. a compliance/ot
+      # framework importing data.aac.lib.*). Such a reference is undefined in the
+      # referencing instance's bundle — the fix is to factor the shared package
+      # into a `common` bundle co-loaded everywhere, not to ship a broken bundle.
+      # See scripts/check-cross-domain-imports.py + opa-per-instance-scoping.
+      - name: Guard cross-domain references (common-bundle trip-wire)
+        run: python3 scripts/check-cross-domain-imports.py rego_src
+
       - name: Install OPA
         run: |
           OPA_VERSION="${OPA_VERSION:-1.12.2}"
