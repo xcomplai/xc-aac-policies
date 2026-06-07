@@ -19,6 +19,12 @@
 # supports multiple bundles per instance with DISJOINT roots) — built from the
 # SAME source release so the shared layer never drifts. Until then: 3 bundles.
 #
+# This is no longer a memory note: scripts/check-cross-domain-imports.py runs in
+# release-bundle.yml and FAILS the build the first time any domain references a
+# package owned by another domain — it tells you exactly when the `common` bundle
+# is required (and how). Adding a `common:` entry below is all the build script
+# needs; it emits one bundle per domain key automatically.
+#
 # All bundles are built from ONE source release (same pinned ref + .manifest
 # revision) in one CI run — lockstep, so a shared package never skews between
 # bundles. Each domain's source dirs are disjoint → no root conflicts.
