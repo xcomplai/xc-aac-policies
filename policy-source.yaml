@@ -38,8 +38,8 @@ source:
   # v2.4.0 closed the conversion backlog: the aac/ overlay covers all 22
   # frameworks across security/compliance/ot, each self-registering in
   # data.aac.catalog, with maturity tiers (ga|beta|preview).
-  # v2.5.0 reconciles three upstream frameworks as maturity=preview (cis_m365,
-  # stig_kubernetes, stig_openshift_4). v2.6.0 converts stig_kubernetes
-  # preview->beta (self-contained aac_main adapter, 10/29-control subset) →
-  # assessable 22->23, preview 3->2. Catalog still 25 frameworks.
-  ref: v2.6.0
+  # v2.5.0 reconciled three upstream frameworks as preview. v2.6.0 converted
+  # stig_kubernetes preview->beta (10/29-control subset; assessable 22->23).
+  # v2.7.0 grows the stig_kubernetes subset to 13/29 (adds scheduler +
+  # controller-manager controls). Catalog still 25 frameworks.
+  ref: v2.7.0
