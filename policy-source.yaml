@@ -29,8 +29,13 @@
 
 source:
   repo: xcomplai/xc-rego-policies
-  # The in-org source carries the AAC fact_contract/v1 layer (aac/) natively, so
-  # the bundle includes data.aac.lib.* + data.<fw>.main + data.aac.catalog with NO
-  # injection step. v2.3.0 adds derived control-coverage (controls.implemented /
-  # total) to each fact-contract framework's metadata → surfaced via data.aac.catalog.
-  ref: v2.3.0
+  # The in-org source carries the AAC fact_contract/v1 layer (aac/) natively:
+  # data.aac.lib.* + data.<fw>.main + data.aac.catalog. Per-domain bundles use
+  # Option F (self-contained domain bundles) — build-domain-bundles.sh injects the
+  # shared aac/ source into EACH domain bundle and routes framework mains by
+  # metadata.domain, so every domain bundle is self-sufficient.
+  #
+  # v2.4.0 closes the conversion backlog: the aac/ overlay now covers all 22
+  # frameworks across security/compliance/ot, each self-registering in
+  # data.aac.catalog, with maturity tiers (ga|beta|preview; all currently beta).
+  ref: v2.4.0
