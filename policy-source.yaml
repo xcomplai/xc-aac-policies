@@ -39,9 +39,10 @@ source:
   # frameworks across security/compliance/ot, each self-registering in
   # data.aac.catalog, with maturity tiers (ga|beta|preview).
   # v2.5.0 reconciled three upstream frameworks as preview. v2.6.0 converted
-  # stig_kubernetes preview->beta (10/29-control subset; assessable 22->23).
-  # v2.6.1 grew the stig_kubernetes subset to 13/29 (scheduler + controller-manager).
-  # v2.6.2 completes it to 29/29 (100%): kubelet via /configz, audit, namespaces,
-  # pods, rbac, dashboard. PATCH (within-framework coverage growth). Catalog still
-  # 25 frameworks.
+  # stig_kubernetes preview->beta (10 of the upstream policy's controls; assessable
+  # 22->23). v2.6.1 grew it to 13 (scheduler + controller-manager). v2.6.2 to all 29
+  # (kubelet via /configz, audit, namespaces, pods, rbac, dashboard) — the upstream
+  # stig.kubernetes policy's FULL set, a subset of the ~90-rule DISA STIG K8s V2R1
+  # benchmark (NOT 100% of the benchmark). PATCH (within-framework coverage growth).
+  # Catalog still 25 frameworks.
   ref: v2.6.2
