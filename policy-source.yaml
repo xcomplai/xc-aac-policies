@@ -45,4 +45,4 @@ source:
   # stig.kubernetes policy's FULL set, a subset of the ~90-rule DISA STIG K8s V2R1
   # benchmark (NOT 100% of the benchmark). PATCH (within-framework coverage growth).
   # Catalog still 25 frameworks.
-  ref: v2.6.3
+  ref: v2.7.0
