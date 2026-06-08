@@ -35,7 +35,10 @@ source:
   # shared aac/ source into EACH domain bundle and routes framework mains by
   # metadata.domain, so every domain bundle is self-sufficient.
   #
-  # v2.4.0 closes the conversion backlog: the aac/ overlay now covers all 22
+  # v2.4.0 closed the conversion backlog: the aac/ overlay covers all 22
   # frameworks across security/compliance/ot, each self-registering in
-  # data.aac.catalog, with maturity tiers (ga|beta|preview; all currently beta).
-  ref: v2.4.0
+  # data.aac.catalog, with maturity tiers (ga|beta|preview).
+  # v2.5.0 reconciles three upstream frameworks as maturity=preview (cis_m365,
+  # stig_kubernetes, stig_openshift_4) — declared in the catalog, not yet
+  # assessable (assessable stays at 22). Catalog now 25 frameworks.
+  ref: v2.5.0
