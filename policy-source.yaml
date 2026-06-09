@@ -90,4 +90,8 @@ source:
   # Plus content_license markers (Gate E): cis_rhel9 CC-BY-NC-SA + paraphrase,
   # nist_800_53 public-domain. Needs aac_common 1.14.0 (faillock/file-perm-stat/
   # pam.d-sudo nouns). No fact_contract change.
-  ref: v3.0.0-edge.8
+  #
+  # v3.0.0-edge.9 (2026-06-09): stig_rhel9@V2R8 246->254 (57%) — §231 mount tail
+  # /home+/boot+/boot/efi options (+5) + §252 chrony.conf NTP hardening maxpoll/
+  # port0/cmdport0 (+3). Needs aac_common 1.15.0 (chrony noun). No fact_contract change.
+  ref: v3.0.0-edge.9
