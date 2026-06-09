@@ -45,4 +45,10 @@ source:
   # stig.kubernetes policy's FULL set, a subset of the ~90-rule DISA STIG K8s V2R1
   # benchmark (NOT 100% of the benchmark). PATCH (within-framework coverage growth).
   # Catalog still 25 frameworks.
-  ref: v2.7.0
+  #
+  # v3.0.0-edge.1 (2026-06-08): the v3 LINE — overlay collapsed into the target shape
+  # (aac/lib + aac/catalog + aac/frameworks/<fw>/<token>/), version-qualified identity
+  # (@-keys), 25 frameworks. STIG frameworks XCCDF-source-pinned + expanded
+  # (stig_kubernetes@V2R6 41/92, stig_openshift_4@V2R5 21/83). fact_contract formalized
+  # to v1. EDGE prerelease — built by build-domain-bundles.sh's v3-layout Option-F.
+  ref: v3.0.0-edge.1
