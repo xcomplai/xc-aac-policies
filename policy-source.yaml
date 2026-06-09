@@ -71,4 +71,9 @@ source:
   # v3.0.0-edge.5 (2026-06-09): stig_rhel9@V2R8 119->155 — pwquality §61 (+10) +
   # file-perm §232 (+26). Needs aac_common 1.6.0 (pwquality noun + expanded
   # filesystem_permissions stat list). No fact_contract change.
-  ref: v3.0.0-edge.5
+  #
+  # v3.0.0-edge.6 (2026-06-09): stig_rhel9@V2R8 155->218 (49%) — packages §215 (+16),
+  # mount §231 (+23), pam-tail §61 (+9), accounts §41 (+8), boot §211/212 (+7).
+  # Needs aac_common 1.11.0 (packages/mounts/pam_d/login_defs/accounts/kernel_cmdline
+  # nouns). No fact_contract change.
+  ref: v3.0.0-edge.6
