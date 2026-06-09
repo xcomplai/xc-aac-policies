@@ -76,4 +76,11 @@ source:
   # mount §231 (+23), pam-tail §61 (+9), accounts §41 (+8), boot §211/212 (+7).
   # Needs aac_common 1.11.0 (packages/mounts/pam_d/login_defs/accounts/kernel_cmdline
   # nouns). No fact_contract change.
-  ref: v3.0.0-edge.6
+  #
+  # v3.0.0-edge.7 (2026-06-09): stig_rhel9@V2R8 218->223 (50%) — faillock §41 (+5
+  # account-lockout: deny/fail_interval/unlock_time/even_deny_root/audit; needs
+  # aac_common 1.12.0 faillock noun) + ADR-017 crosswalk-GENERATION rework (crosswalk
+  # is now an inverted index aggregated from each framework's metadata.overlay via
+  # data.aac.catalog ∪ a transitional hand-bridge; control_ids list-valued; no
+  # fact_contract change, no production consumer).
+  ref: v3.0.0-edge.7
