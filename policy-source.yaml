@@ -83,4 +83,11 @@ source:
   # is now an inverted index aggregated from each framework's metadata.overlay via
   # data.aac.catalog ∪ a transitional hand-bridge; control_ids list-valued; no
   # fact_contract change, no production consumer).
-  ref: v3.0.0-edge.7
+  #
+  # v3.0.0-edge.8 (2026-06-09): stig_rhel9@V2R8 223->246 (55%) — package
+  # presence/absence §215/251/252/291/431/432/433/651/652 (+13) + §232 file-ownership
+  # tail /var/log+/etc/audit+cron (+6) + §611 pwquality retry/pam rounds/sudo (+4).
+  # Plus content_license markers (Gate E): cis_rhel9 CC-BY-NC-SA + paraphrase,
+  # nist_800_53 public-domain. Needs aac_common 1.14.0 (faillock/file-perm-stat/
+  # pam.d-sudo nouns). No fact_contract change.
+  ref: v3.0.0-edge.8
