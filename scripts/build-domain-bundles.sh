@@ -43,12 +43,12 @@ for D in $domains; do
   [ "$found" -gt 0 ] || { echo "::error::domain '$D' has no source paths present"; exit 1; }
 
   # ── Option F: inject the fact_contract layer (aac/) into this bundle ─────────
-  # Shared aac (lib_*, crosswalk, catalog aggregator) → EVERY bundle; each
-  # framework's main/metadata/registration → the bundle named by its
-  # metadata.domain. The shared lib travels with the mains so the bundle compiles
-  # standalone (rego function libs can't be split across separately-built
-  # bundles). Lib duplication across bundles is intentional (lockstep build → no
-  # drift). See bundle-domains.yaml.
+  # v3 layout: shared libs (aac/lib/*) + catalog contract (aac/catalog/*) → EVERY
+  # bundle; each framework dir aac/frameworks/<fw>/<token>/ (policy + metadata +
+  # register) → the bundle named by its metadata.domain. The shared lib travels
+  # with the policies so the bundle compiles standalone (rego function libs can't
+  # be split across separately-built bundles); lib duplication across bundles is
+  # intentional (lockstep build → no drift). Co-located *_test.rego NEVER ship.
   while IFS= read -r rel; do
     [ -n "$rel" ] || continue
     mkdir -p "$asm/$(dirname "$rel")"
@@ -58,34 +58,24 @@ import sys, glob, os, re
 src, domain = sys.argv[1], sys.argv[2]
 aac = os.path.join(src, "aac")
 out = []
-# Shared: libs + crosswalk + the catalog aggregator → every bundle.
-shared = glob.glob(os.path.join(aac, "rego", "lib_*.rego")) + [
-    os.path.join(aac, "rego", "crosswalk.rego"),
-    os.path.join(aac, "metadata", "aac_catalog.rego"),
-]
-for p in shared:
-    if os.path.exists(p):
+def add(p):
+    if os.path.exists(p) and not p.endswith("_test.rego"):
         out.append(os.path.relpath(p, src))
-# Per-framework: route main + metadata + registration by metadata.domain.
+# Shared: plane libs + crosswalk (aac/lib/) + the catalog contract (aac/catalog/)
+# → every bundle. Exclude tests.
+for p in sorted(glob.glob(os.path.join(aac, "lib", "*.rego"))
+                + glob.glob(os.path.join(aac, "catalog", "*.rego"))):
+    add(p)
+# Per-framework: route the whole framework dir (policy + metadata + register; a
+# preview stub has metadata + register only, no policy) by metadata.domain.
 DOM = re.compile(r'default\s+domain\s*:=\s*"([^"]+)"')
-KEY = re.compile(r'default\s+framework_key\s*:=\s*"([^"]+)"')
-for meta in sorted(glob.glob(os.path.join(aac, "metadata", "*.rego"))):
-    b = os.path.basename(meta)
-    if b == "aac_catalog.rego" or b.endswith("_catalog.rego"):
-        continue  # aggregator + registrations handled separately
+for meta in sorted(glob.glob(os.path.join(aac, "frameworks", "*", "*", "metadata.rego"))):
     txt = open(meta, encoding="utf-8", errors="ignore").read()
     md = DOM.search(txt)
     if not md or md.group(1) != domain:
         continue
-    fk = KEY.search(txt)
-    fw = fk.group(1) if fk else b[:-5]
-    for cand in [
-        os.path.join(aac, "rego", fw + "_main.rego"),
-        meta,
-        os.path.join(aac, "metadata", fw + "_catalog.rego"),
-    ]:
-        if os.path.exists(cand):
-            out.append(os.path.relpath(cand, src))
+    for f in sorted(glob.glob(os.path.join(os.path.dirname(meta), "*.rego"))):
+        add(f)
 for f in out:
     print(f)
 PY
