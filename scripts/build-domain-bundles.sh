@@ -61,10 +61,12 @@ out = []
 def add(p):
     if os.path.exists(p) and not p.endswith("_test.rego"):
         out.append(os.path.relpath(p, src))
-# Shared: plane libs + crosswalk (aac/lib/) + the catalog contract (aac/catalog/)
-# → every bundle. Exclude tests.
+# Shared → every bundle (domain-agnostic): plane libs + crosswalk (aac/lib/), the
+# catalog contract (aac/catalog/), and the report/derivation layer (aac/report/ —
+# debt scoring etc., on the assessment-output contract; ADR-016). Exclude tests.
 for p in sorted(glob.glob(os.path.join(aac, "lib", "*.rego"))
-                + glob.glob(os.path.join(aac, "catalog", "*.rego"))):
+                + glob.glob(os.path.join(aac, "catalog", "*.rego"))
+                + glob.glob(os.path.join(aac, "report", "*.rego"))):
     add(p)
 # Per-framework: route the whole framework dir (policy + metadata + register; a
 # preview stub has metadata + register only, no policy) by metadata.domain.
