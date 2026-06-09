@@ -94,4 +94,9 @@ source:
   # v3.0.0-edge.9 (2026-06-09): stig_rhel9@V2R8 246->254 (57%) — §231 mount tail
   # /home+/boot+/boot/efi options (+5) + §252 chrony.conf NTP hardening maxpoll/
   # port0/cmdport0 (+3). Needs aac_common 1.15.0 (chrony noun). No fact_contract change.
-  ref: v3.0.0-edge.9
+  #
+  # v3.0.0-edge.10 (2026-06-09): stig_rhel9@V2R8 254->269 (60%) — §231 NFS-mount
+  # aggregates (+3) + §271 dconf session-lock/banner GUI-gated (+8) + §231 removable
+  # media + non-root local (+4). Needs aac_common 1.17.0 (dconf + fstab nouns).
+  # No fact_contract change.
+  ref: v3.0.0-edge.10
