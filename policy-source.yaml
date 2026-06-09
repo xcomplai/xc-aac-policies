@@ -62,4 +62,9 @@ source:
   # @V2R8 26->67 controls — §654 audit RULES complete (10 file-watch + 31 priv-cmd
   # exec + 10 syscall-class) over the audit.rules noun (aac_common 1.3.0, no collection
   # change) + ADR-023 registry capability markers. No fact_contract change.
-  ref: v3.0.0-edge.3
+  #
+  # v3.0.0-edge.4 (2026-06-09): two tracks. (1) stig_rhel9@V2R8 67->119 — sshd §255
+  # (+19) + NEW sysctl family §213/253/254 (+33, needs aac_common 1.4.0 sysctl noun).
+  # (2) cis_rhel8 preview->beta @4.0.0 (+7, PAID-tier CIS, paraphrased overlay) — a
+  # newly-ASSESSABLE framework (catalog 25->... beta). No fact_contract change.
+  ref: v3.0.0-edge.4
