@@ -57,4 +57,9 @@ source:
   # producer, content_license) + auditd family started (26 controls: 6 reconciled + 2
   # service + 8 auditd.conf + 10 file-watch rules). Needs xcomplai.aac_common@1.3.0
   # (audit noun). No fact_contract change.
-  ref: v3.0.0-edge.2
+  #
+  # v3.0.0-edge.3 (2026-06-09): auditd coverage (PATCH-class, ADR-012). stig_rhel9
+  # @V2R8 26->67 controls — §654 audit RULES complete (10 file-watch + 31 priv-cmd
+  # exec + 10 syscall-class) over the audit.rules noun (aac_common 1.3.0, no collection
+  # change) + ADR-023 registry capability markers. No fact_contract change.
+  ref: v3.0.0-edge.3
