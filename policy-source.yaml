@@ -67,4 +67,8 @@ source:
   # (+19) + NEW sysctl family §213/253/254 (+33, needs aac_common 1.4.0 sysctl noun).
   # (2) cis_rhel8 preview->beta @4.0.0 (+7, PAID-tier CIS, paraphrased overlay) — a
   # newly-ASSESSABLE framework (catalog 25->... beta). No fact_contract change.
-  ref: v3.0.0-edge.4
+  #
+  # v3.0.0-edge.5 (2026-06-09): stig_rhel9@V2R8 119->155 — pwquality §61 (+10) +
+  # file-perm §232 (+26). Needs aac_common 1.6.0 (pwquality noun + expanded
+  # filesystem_permissions stat list). No fact_contract change.
+  ref: v3.0.0-edge.5
