@@ -113,4 +113,9 @@ source:
   # (+8) + §432 sudoers/§651 aide.conf/§652 rsyslog.conf (+12) + packages+dconf tail
   # (+7). Needs aac_common 1.21.0 (sshd_config-stat, kernel_modules, sudoers, aide,
   # rsyslog nouns). No fact_contract change.
-  ref: v3.0.0-edge.13
+  #
+  # v3.0.0-edge.14 (2026-06-10): stig_rhel9@V2R8 316->333 (75%) — systemd service
+  # state §211/213/231/251/252/255/291/433/611/652 (+14) + §213 core-dump hardening
+  # coredump.conf/limits.conf (+3). Needs aac_common 1.23.1 (services masked-list +
+  # coredump/limits nouns). No fact_contract change.
+  ref: v3.0.0-edge.14
