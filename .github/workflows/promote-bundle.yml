@@ -1,0 +1,125 @@
+name: Promote bundle (channel retag, no rebuild)
+
+# Promote an existing EDGE bundle release to an rc/stable channel tag WITHOUT
+# rebuilding (ADR-012 retag-no-rebuild). release-bundle.yml builds on `*-edge.*`
+# push; this workflow does the channel hop by COPYING the already-built, already-
+# signed edge.N assets to the destination tag:
+#
+#   * GH-Release tarballs: download edge.N assets -> rename to the dest tag ->
+#     re-verify the (content-bound) cosign blob signatures -> publish the dest
+#     Release. The .sig/.crt are NOT regenerated, so the original
+#     release-bundle.yml signer identity is preserved for consumers.
+#   * OCI mirror: `cosign copy` ghcr :SRC-<domain> -> :DST-<domain> (same digest).
+#
+# Manual only. The dest tag (rc/stable) does NOT match release-bundle.yml's
+# `*-edge.*` push trigger, so creating it here will not kick off a rebuild.
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_tag:
+        description: 'Existing EDGE release tag to promote FROM (e.g. v3.0.0-edge.14)'
+        required: true
+      dest_tag:
+        description: 'Destination channel tag to promote TO (e.g. v3.0.0-rc.1 or v3.0.0)'
+        required: true
+
+permissions:
+  contents: write   # create the destination Release + upload copied assets
+  packages: write   # cosign copy the OCI mirror tag on ghcr.io
+  # NOTE: no id-token — promotion COPIES existing signatures, it never re-signs.
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    env:
+      OCI_REPO: ghcr.io/${{ github.repository_owner }}/xc-aac-policies
+      ISSUER: https://token.actions.githubusercontent.com
+      # The edge assets were signed by release-bundle.yml — verify against THAT identity.
+      IDRE: https://github.com/${{ github.repository }}/.github/workflows/release-bundle.yml@refs/(tags|heads)/.*
+    steps:
+      - name: Guard — dest must be a channel tag, not edge; src != dest
+        run: |
+          SRC="${{ github.event.inputs.source_tag }}"
+          DST="${{ github.event.inputs.dest_tag }}"
+          [ "$SRC" = "$DST" ] && { echo "::error::source_tag == dest_tag"; exit 1; }
+          case "$DST" in
+            *-edge.*) echo "::error::dest_tag '$DST' is an edge tag — promote targets rc/stable only"; exit 1;;
+          esac
+          echo "Promoting $SRC -> $DST"
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: 'v2.4.1'
+
+      - name: Install oras
+        uses: oras-project/setup-oras@v1
+        with:
+          version: 1.2.0
+
+      - name: Registry login (oras + cosign share the docker keychain)
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u "${{ github.actor }}" --password-stdin
+          echo "${{ secrets.GITHUB_TOKEN }}" | cosign login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Download edge assets + rename to dest tag (bytes unchanged)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SRC="${{ github.event.inputs.source_tag }}"
+          DST="${{ github.event.inputs.dest_tag }}"
+          mkdir promote && cd promote
+          gh release download "$SRC" --repo "${{ github.repository }}"
+          for f in *"$SRC"*; do mv "$f" "${f/$SRC/$DST}"; done
+          ls -la
+
+      - name: Verify copied blob signatures (content-bound — must stay valid)
+        working-directory: promote
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          DST="${{ github.event.inputs.dest_tag }}"
+          for D in security compliance ot; do
+            B="xc-aac-policies-${D}-${DST}.tar.gz"
+            [ -f "$B" ] || { echo "::error::missing $B from source release"; exit 1; }
+            echo "== $D =="
+            cosign verify-blob \
+              --signature "${B}.sig" --certificate "${B}.crt" \
+              --certificate-identity-regexp "${IDRE}" \
+              --certificate-oidc-issuer "${ISSUER}" \
+              "$B"
+          done
+
+      - name: Retag the OCI mirror (cosign copy — same digest, no rebuild)
+        run: |
+          SRC="${{ github.event.inputs.source_tag }}"
+          DST="${{ github.event.inputs.dest_tag }}"
+          for D in security compliance ot; do
+            srcdig=$(oras resolve "${OCI_REPO}:${SRC}-${D}")
+            cosign copy -f "${OCI_REPO}:${SRC}-${D}" "${OCI_REPO}:${DST}-${D}"
+            dstdig=$(oras resolve "${OCI_REPO}:${DST}-${D}")
+            echo "  $D  src=$srcdig  dst=$dstdig"
+            [ "$srcdig" = "$dstdig" ] || { echo "::error::$D OCI digest changed — not a true retag"; exit 1; }
+          done
+
+      - name: Publish the destination Release (copied assets, no rebuild)
+        working-directory: promote
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SRC="${{ github.event.inputs.source_tag }}"
+          DST="${{ github.event.inputs.dest_tag }}"
+          shopt -s nullglob
+          ASSETS=( xc-aac-policies-*.tar.gz xc-aac-policies-*.tar.gz.sha256 \
+                   xc-aac-policies-*.tar.gz.sig xc-aac-policies-*.tar.gz.crt \
+                   xc-aac-policies-*.tar.gz.cosign.bundle )
+          NOTES="Channel promotion (retag-no-rebuild, ADR-012) from ${SRC}. Identical bundle bytes; cosign blob signatures copied (NOT regenerated) and re-verified against the release-bundle.yml signer identity. OCI mirror retagged via cosign copy (digest unchanged)."
+          if gh release view "${DST}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release upload "${DST}" "${ASSETS[@]}" --repo "${{ github.repository }}" --clobber
+            gh release edit "${DST}" --repo "${{ github.repository }}" --notes "${NOTES}" --title "Policy bundles ${DST} (promoted from ${SRC})"
+          else
+            gh release create "${DST}" --repo "${{ github.repository }}" \
+              --title "Policy bundles ${DST} (promoted from ${SRC})" --notes "${NOTES}" "${ASSETS[@]}"
+          fi
+          echo "Promoted ${SRC} -> ${DST} (GH Release + OCI mirror), no rebuild."

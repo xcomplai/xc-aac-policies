@@ -2,7 +2,14 @@ name: Release bundle
 
 # Build an OPA bundle from a pinned rego_policy_libraries commit (see
 # policy-source.yaml) and upload it as a GitHub Release asset. Triggered on
-# tag push (vX.Y.Z) or manual dispatch.
+# EDGE tag push (v*.*.*-edge.*) or manual dispatch.
+#
+# ⚠ BUILD IS EDGE-ONLY ON PUSH. rc/stable are RETAG-NO-REBUILD (ADR-012): they are
+# cut by promote-bundle.yml (copy the edge.N assets — no rebuild, sigs preserved),
+# NOT by pushing a vX.Y.Z-rc.N / bare vX.Y.Z tag here. A non-edge push tag would
+# rebuild + re-sign (new digest) and break the soak guarantee — so the push trigger
+# is scoped to `*-edge.*`. (workflow_dispatch can still target any tag for a manual
+# rebuild — use it deliberately, not for promotion.)
 #
 # Workflow:
 #   1. Read source.ref from policy-source.yaml.
@@ -17,7 +24,7 @@ name: Release bundle
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - '*-edge.*'   # EDGE only — rc/stable promote via promote-bundle.yml (no rebuild)
   workflow_dispatch:
     inputs:
       tag:
