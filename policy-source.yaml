@@ -118,4 +118,12 @@ source:
   # state §211/213/231/251/252/255/291/433/611/652 (+14) + §213 core-dump hardening
   # coredump.conf/limits.conf (+3). Needs aac_common 1.23.1 (services masked-list +
   # coredump/limits nouns). No fact_contract change.
-  ref: v3.0.0-edge.14
+  #
+  # v3.0.0-edge.15 (2026-06-10): stig_rhel9@V2R8 333->423 (95% — the assessable
+  # ceiling, framework COMPLETE) — closes the remaining 72 in 4 waves: generic
+  # lib.raw_match token-checks (+15), config_files noun + match_or_empty N/A mode +
+  # file_scan sweeps (+31), groups noun + account/GID integrity (+3), plus the
+  # prior +41 unbanked since edge.14. The 23 uncovered are the honest manual ceiling
+  # (rpm-verify, LUKS, SELinux runtime contexts, ISSO/PPSM docs, exact banner text).
+  # Needs aac_common 1.27.0 (config_files + groups nouns). No fact_contract change.
+  ref: v3.0.0-edge.15
