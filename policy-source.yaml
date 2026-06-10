@@ -103,4 +103,8 @@ source:
   # v3.0.0-edge.11 (2026-06-10): stig_rhel9@V2R8 269->278 (62%) — §271 dconf tail
   # automount/autorun/user-list/logout (+6) + §214 dnf GPG-sig dnf.conf+repos (+3).
   # Needs aac_common 1.18.0 (dnf noun). No fact_contract change.
-  ref: v3.0.0-edge.11
+  #
+  # v3.0.0-edge.12 (2026-06-10): stig_rhel9@V2R8 278->282 (63%) — §653 auditd.conf
+  # tail admin_space_left_action/name_format/action_mail_acct/freq (+4). Over the
+  # existing audit noun — no collection change (aac_common stays 1.18.0). No fact_contract change.
+  ref: v3.0.0-edge.12
