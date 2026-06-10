@@ -99,4 +99,8 @@ source:
   # aggregates (+3) + §271 dconf session-lock/banner GUI-gated (+8) + §231 removable
   # media + non-root local (+4). Needs aac_common 1.17.0 (dconf + fstab nouns).
   # No fact_contract change.
-  ref: v3.0.0-edge.10
+  #
+  # v3.0.0-edge.11 (2026-06-10): stig_rhel9@V2R8 269->278 (62%) — §271 dconf tail
+  # automount/autorun/user-list/logout (+6) + §214 dnf GPG-sig dnf.conf+repos (+3).
+  # Needs aac_common 1.18.0 (dnf noun). No fact_contract change.
+  ref: v3.0.0-edge.11
