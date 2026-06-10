@@ -107,4 +107,10 @@ source:
   # v3.0.0-edge.12 (2026-06-10): stig_rhel9@V2R8 278->282 (63%) — §653 auditd.conf
   # tail admin_space_left_action/name_format/action_mail_acct/freq (+4). Over the
   # existing audit noun — no collection change (aac_common stays 1.18.0). No fact_contract change.
-  ref: v3.0.0-edge.12
+  #
+  # v3.0.0-edge.13 (2026-06-10): stig_rhel9@V2R8 278->316 (71%) — §654 audit-rules
+  # tail (+3) + §255 sshd/§431 SELinux (+4) + kernel-module disables §213/231/291
+  # (+8) + §432 sudoers/§651 aide.conf/§652 rsyslog.conf (+12) + packages+dconf tail
+  # (+7). Needs aac_common 1.21.0 (sshd_config-stat, kernel_modules, sudoers, aide,
+  # rsyslog nouns). No fact_contract change.
+  ref: v3.0.0-edge.13
