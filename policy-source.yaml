@@ -137,4 +137,23 @@ source:
   # "timeout" was a transient connection drop, not slow rego — no nist rego change).
   # opa test aac/ 211/211; pre-flight build clean (security 351 / compliance 147 / ot 85
   # files). Needs aac_common >=1.27.0. No fact_contract change.
-  ref: v3.0.0-edge.16
+  #
+  # v3.0.0-edge.17 (2026-06-11): post-GA launch-vertical increment (PATCH-class,
+  # ADR-012). THREE additive deltas: (1) #2 profile/baseline SCOPING — additive
+  # `profiles:[]` on cis_rhel9 (L1/L2) + nist_800_53 (low/moderate/high, cumulative
+  # baselines); ONE generic scoping dimension (severity stays unknown — scoping ≠
+  # severity, ADR-017); assess filters out-of-profile checks to not_applicable;
+  # meta.profiles surfaces the baselines in data.aac.catalog. (2) #3 asset-risk JOIN
+  # (ADR-019 customer-extensible report plane, FIRST instance) — risk = severity ×
+  # criticality × exposure × compensating over input.asset; vendor weights
+  # data.aac.report.risk, customer-overridable at data.customer.<tenant>.report.risk;
+  # additive (untagged host → medium/reachable → 1.0, risk == severity, heatmap-stable;
+  # priority_score unchanged, new risk_adjusted_priority added). (3) #27 effort
+  # BACKFILL — data.aac.report.effort now derives effort for EVERY §8-registered check
+  # (gather-family × remediation modifier from data.aac.lib.registry); curated
+  # launch-vertical wins; legacy section catalog kept as fallback for unmigrated
+  # producers (retirement gated on the producer migration). Also CI+runtime aligned to
+  # OPA 1.12.2 (#36/#37, build == test == runtime). opa test aac/ 232/232; pre-flight
+  # build clean (security 352 / compliance 148 / ot 86, cross-domain gate OK). Needs
+  # aac_common >=1.27.0 (no new noun). fact_contract UNCHANGED (v1).
+  ref: v3.0.0-edge.17
