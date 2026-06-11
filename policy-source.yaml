@@ -126,17 +126,4 @@ source:
   # prior +41 unbanked since edge.14. The 23 uncovered are the honest manual ceiling
   # (rpm-verify, LUKS, SELinux runtime contexts, ISSO/PPSM docs, exact banner text).
   # Needs aac_common 1.27.0 (config_files + groups nouns). No fact_contract change.
-  #
-  # v3.1.0-edge.1 (2026-06-11): FIRST cut on the post-GA v3.1.0 MINOR line (GA v3.0.0
-  # shipped from edge.15 — the v3.0.0-edge.N channel is CLOSED; a v3.0.0-edge.16 would
-  # sort BEFORE the released v3.0.0). New: the assessment_contract/v1 PRODUCER MIGRATION
-  # — 15 producers now emit the v1 envelope (results[] 4-state pass/fail/n-a/error +
-  # manual[] + check_id + lowercase severity) via the shared aac/lib/contract.report()
-  # builder; cis_rhel9/nist_800_53/stig_rhel9/fisma migrated; + Task #27 effort-by-check
-  # overlay (data.aac.report.effort). ADDITIVE (back-compat: legacy consumers read the
-  # violations[] subset) -> MINOR per ADR-012; fact_contract UNCHANGED (v1). Lane A
-  # (BUILD-20260611-1) confirmed nist eval is ~1ms host-scale / 0.5s on a 1.2MB input
-  # (the RUN-20260610-3 "timeout" was a transient connection drop, not slow rego — no
-  # nist rego change). opa test aac/ 211/211. Pre-flight build clean (security 351 /
-  # compliance 147 / ot 85 files). Needs aac_common >=1.27.0.
-  ref: v3.1.0-edge.1
+  ref: v3.0.0-edge.15
