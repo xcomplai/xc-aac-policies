@@ -1,0 +1,77 @@
+# Tag guard (#29) — reject HAND-CUT rc/stable tags (the rc.1-false-start backstop).
+#
+# rc/stable bundle tags must be cut by promote-bundle.yml (retag-no-rebuild,
+# ADR-012), NEVER by a human `git push origin v3.0.0-rc.N` / `git push origin
+# v3.0.0`. A hand-cut tag skips the soak/sign/copy guarantees and is how the
+# rc.1 false-start happened.
+#
+# HOW IT WORKS (no plan-gated ruleset needed — free on any repo/visibility):
+# promote-bundle.yml creates its dest tag via the repo's GITHUB_TOKEN, and
+# "events triggered by GITHUB_TOKEN do not create a new workflow run". So a
+# promote-cut rc/stable tag NEVER reaches this guard. A HUMAN/PAT push of an
+# rc/stable tag DOES trigger it → by construction, any rc/stable tag that lands
+# here is hand-cut → fail loudly (+ delete, see TAG_GUARD_DELETE).
+#
+# edge tags are LEGITIMATELY hand-pushed (they trigger release-bundle.yml to
+# build) → this guard passes them through.
+#
+# ⚠ NATIVE ALTERNATIVE + PLAN GATE: a tag-targeted ruleset would enforce this at
+# the platform. Rulesets are FREE on PUBLIC repos but gated behind GitHub Team on
+# PRIVATE repos (see xc-platform GITHUB_NATIVE_ADOPTION.md). This CI guard works
+# uniformly regardless of plan/visibility AND cleanly distinguishes the promote
+# workflow from humans without fragile bypass-actor config — so it is preferred
+# over a ruleset even where one is available.
+name: tag-guard
+
+on:
+  push:
+    tags:
+      - 'v*'   # all version tags; classified in-job (edge/other pass, rc/stable fail)
+
+permissions:
+  contents: write   # to delete an offending tag/release
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Classify the pushed tag
+        id: c
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          case "$TAG" in
+            *-edge.*)                 CLASS=edge ;;
+            *-rc.*)                   CLASS=rc ;;
+            v[0-9]*.[0-9]*.[0-9]*-*)  CLASS=other ;;   # vX.Y.Z-<other> (alpha/beta/…) — not guarded
+            v[0-9]*.[0-9]*.[0-9]*)    CLASS=stable ;;
+            *)                        CLASS=other ;;
+          esac
+          echo "tag=$TAG"     >> "$GITHUB_OUTPUT"
+          echo "class=$CLASS" >> "$GITHUB_OUTPUT"
+          echo "Tag '$TAG' classified as: $CLASS"
+
+      - name: Pass — edge / non-guarded tag
+        if: steps.c.outputs.class == 'edge' || steps.c.outputs.class == 'other'
+        run: echo "✅ '${{ steps.c.outputs.tag }}' (${{ steps.c.outputs.class }}) is allowed to be pushed by hand."
+
+      - name: FAIL — hand-cut rc/stable tag
+        if: steps.c.outputs.class == 'rc' || steps.c.outputs.class == 'stable'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Repo variable TAG_GUARD_DELETE: "false" = alarm-only (keep the tag);
+          # anything else (incl. unset) = delete the offending tag (default).
+          DELETE: ${{ vars.TAG_GUARD_DELETE }}
+        run: |
+          TAG="${{ steps.c.outputs.tag }}"
+          echo "::error title=Hand-cut ${{ steps.c.outputs.class }} tag::'$TAG' was pushed by hand. rc/stable tags MUST be cut via promote-bundle.yml (retag-no-rebuild, ADR-012). Re-cut: run promote-bundle.yml source_tag=<edge> dest_tag=$TAG."
+          if [ "${DELETE}" = "false" ]; then
+            echo "TAG_GUARD_DELETE=false → alarm-only; leaving '$TAG' in place. Delete it manually or re-cut via promote."
+            exit 1
+          fi
+          echo "Deleting the illegitimate tag '$TAG' (TAG_GUARD_DELETE!=false)…"
+          # Delete a release on this tag if one exists (don't fail if none).
+          gh release delete "$TAG" --repo "${GITHUB_REPOSITORY}" --yes --cleanup-tag 2>/dev/null \
+            || gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${TAG}" 2>/dev/null \
+            || echo "(could not auto-delete '$TAG' — delete it by hand)"
+          echo "Deleted '$TAG'. To cut it correctly: promote-bundle.yml source_tag=<edge.N> dest_tag=$TAG."
+          exit 1

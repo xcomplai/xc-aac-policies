@@ -23,6 +23,14 @@ on:
       dest_tag:
         description: 'Destination channel tag to promote TO (e.g. v3.0.0-rc.1 or v3.0.0)'
         required: true
+      prune:
+        description: 'Tag-hygiene after promote: dry-run (plan only) | apply (delete) | off'
+        required: false
+        default: 'dry-run'
+      keep_edge:
+        description: 'How many newest edge numbers to keep when pruning'
+        required: false
+        default: '5'
 
 permissions:
   contents: write   # create the destination Release + upload copied assets
@@ -123,3 +131,24 @@ jobs:
               --title "Policy bundles ${DST} (promoted from ${SRC})" --notes "${NOTES}" "${ASSETS[@]}"
           fi
           echo "Promoted ${SRC} -> ${DST} (GH Release + OCI mirror), no rebuild."
+
+      # Tag hygiene (#29) — automate the by-hand rc.1-style cleanup: prune
+      # ORPHANED untagged GHCR versions + SUPERSEDED edge versions beyond the
+      # keep-window. The script's hard guard keeps any version carrying a
+      # stable/rc/*-latest/sha256 tag, so the just-promoted DST and N-1 (and the
+      # edge that shares stable's digest) are inherently protected.
+      #
+      # DEFAULT = dry-run (plan only). Flip the `prune` input to `apply` for real
+      # deletion — that needs delete:packages, so set the PACKAGES_ADMIN_TOKEN
+      # secret (a PAT with delete:packages; the repo GITHUB_TOKEN cannot delete
+      # org container versions). Without it, --apply deletes nothing (warns).
+      - name: Tag hygiene — prune superseded/orphaned OCI versions
+        if: ${{ github.event.inputs.prune != 'off' }}
+        env:
+          GH_TOKEN: ${{ secrets.PACKAGES_ADMIN_TOKEN || github.token }}
+        run: |
+          MODE="${{ github.event.inputs.prune }}"
+          ARGS=( --org "${{ github.repository_owner }}" --package xc-aac-policies --keep-edge "${{ github.event.inputs.keep_edge }}" )
+          [ "$MODE" = "apply" ] && ARGS+=( --apply )
+          echo "Tag-hygiene mode: ${MODE}"
+          bash scripts/prune-oci-tags.sh "${ARGS[@]}"

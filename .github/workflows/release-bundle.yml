@@ -261,3 +261,22 @@ jobs:
             gh release create "${TAG}" --repo "${{ github.repository }}" \
               --title "Policy bundles ${TAG}" --notes "${NOTES}" "${ASSETS[@]}"
           fi
+
+      # Fire the xc-platform edge OOTB smoke (#28) for this edge bundle. OPT-IN:
+      # cross-repo dispatch needs a token with Contents:write on xc-platform —
+      # set the CI_DISPATCH_TOKEN secret here. Without it this step no-ops (the
+      # smoke can always be run manually via workflow_dispatch on xc-platform).
+      - name: Trigger edge OOTB smoke (xc-platform #28)
+        if: ${{ startsWith(steps.tag.outputs.tag, 'v') && contains(steps.tag.outputs.tag, '-edge.') }}
+        env:
+          GH_TOKEN: ${{ secrets.CI_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::notice::CI_DISPATCH_TOKEN not set — skipping auto-trigger. Run the smoke manually: gh workflow run edge-ootb-smoke.yml -R ${{ github.repository_owner }}/xc-platform -f tag=${{ steps.tag.outputs.tag }}"
+            exit 0
+          fi
+          gh api -X POST "/repos/${{ github.repository_owner }}/xc-platform/dispatches" \
+            -f event_type=edge-bundle-published \
+            -F "client_payload[tag]=${{ steps.tag.outputs.tag }}" \
+          && echo "Dispatched edge-bundle-published(tag=${{ steps.tag.outputs.tag }}) to xc-platform." \
+          || echo "::warning::dispatch failed (token scope?) — run the smoke manually."
