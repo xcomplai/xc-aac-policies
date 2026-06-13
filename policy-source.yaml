@@ -156,4 +156,24 @@ source:
   # OPA 1.12.2 (#36/#37, build == test == runtime). opa test aac/ 232/232; pre-flight
   # build clean (security 352 / compliance 148 / ot 86, cross-domain gate OK). Needs
   # aac_common >=1.27.0 (no new noun). fact_contract UNCHANGED (v1).
-  ref: v3.0.0-edge.17
+  #
+  # v3.1.0-edge.1 (2026-06-13): MINOR-class increment (ADR-012) — promotes to v3.2.0
+  # once soaked. EDGE-RENAME: the edge base rebases to the shipped v3.1.0 line and the
+  # counter RESETS (this is edge.1, NOT edge.18); the promotion assigns the next
+  # version (v3.2.0), exactly as v3.0.0-edge.17 promoted to v3.1.0. Built from rego tag
+  # v3.1.0-edge.1 @ 1641d17. Deltas accrued on v3 after edge.17:
+  # (1) GOVERNANCE/ATTESTATION FACT PLANE (Lane D #13/#8, ADR-029) — new aac/lib/
+  # governance.rego realizing the PEER contract `governance_fact_contract/v1` (own
+  # integer key, NOT a fact_contract bump → additive) over input.governance.<domain>.
+  # <key> provenance envelopes; digital_sovereignty/v1_0 (12) + ncsc_caf/v4_0 (13) now
+  # ASSESSABLE (domain=compliance → :8182 bundle), sharing 6 checks (crosswalk
+  # assess-once-report-N); §8 +22 governance checks; declared+attested promotion
+  # (un-sourced → manual[], never a silent pass). (2) #42 — optional `fact_contract`
+  # spec-key on contract.report so governance producers self-declare
+  # governance_fact_contract/v1. (3) LANE E non-Linux frameworks — cis_kubernetes@2.0.1,
+  # stig_windows_server_2022/2019/2016 + windows_10/11, cis_azure@6.0.0, cis_aws, cis_gcp
+  # (new k8s/windows/azure/aws/gcp §8 vocab + aac/lib/<plane> predicates; cis_docker
+  # still PDF-blocked → Lane E 8/9+docker). opa test aac/ 353/353; §8 gate 494/494.
+  # Needs xcomplai.aac_common >=1.28.0 (roles/gather_governance feeds input.governance.*).
+  # fact_contract UNCHANGED (v1); new peer governance_fact_contract/v1.
+  ref: v3.1.0-edge.1
