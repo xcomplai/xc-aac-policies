@@ -176,4 +176,25 @@ source:
   # still PDF-blocked → Lane E 8/9+docker). opa test aac/ 353/353; §8 gate 494/494.
   # Needs xcomplai.aac_common >=1.28.0 (roles/gather_governance feeds input.governance.*).
   # fact_contract UNCHANGED (v1); new peer governance_fact_contract/v1.
-  ref: v3.1.0-edge.1
+  #
+  # v3.3.0-edge.1 (2026-06-13): MINOR-class increment (ADR-012) — promotes to v3.3.0
+  # once soaked. EDGE-RENAME + OFF-BY-ONE FIX: the edge tag now carries the TRUE
+  # PRODUCT TARGET (v3.3.0), NOT the shipped line — the rego git-tag line had lagged
+  # product by one (latest rego tag v3.1.0-edge.1 shipped as product v3.2.0; the rego
+  # never got a v3.2.0 tag, that promote was bundle-level retag-no-rebuild). So this
+  # ref jumps v3.1.0-edge.1 -> v3.3.0-edge.1, skipping the phantom v3.2.0 rego tag
+  # (correct). Counter RESETS per target version (this is edge.1). Built from rego tag
+  # v3.3.0-edge.1 @ 66b608e. Deltas accrued on v3 after v3.1.0-edge.1 (@1641d17):
+  # (1) cis_docker #55 (c18f111) — reconcile the v1.6.0 producer to assessment_
+  # contract/v1 + the §8 CONTAINER-HOST plane (+11 container vocab → §8 494->505);
+  # completes LANE E 9/9 (cis_docker was the last PDF-blocked item, now unblocked).
+  # (2) stig_rhel8 #67 (57f9f12) — NEW FRAMEWORK: V2R5 producer @ assessment_
+  # contract/v1, 220 controls (reuses aac/lib/linux, no new §8 vocab). A new
+  # framework → additive MINOR → drives the v3.3.0 target. (3) cis_rhel8 #68
+  # (66b608e) — deepen 7->13 controls + L1/L2 profiles + contract.report self-declare.
+  # opa test aac/ 366/366; §8 registry gate 505/505; catalog 33 frameworks self-
+  # registered. Needs xcomplai.aac_common >=1.28.0 (unchanged from edge.1; the rhel8
+  # producers gather Linux host-state via the existing aac_common nouns). cis_docker
+  # gather needs xcomplai.aac_container (served-but-not-yet-baked into the core EE —
+  # tracked separately, xc-aac-ee#75). fact_contract UNCHANGED (v1).
+  ref: v3.3.0-edge.1
