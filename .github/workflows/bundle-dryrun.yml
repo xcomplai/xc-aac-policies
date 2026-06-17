@@ -1,0 +1,125 @@
+name: Bundle build dry-run (shift-left gate)
+
+# Shift-left guard for the per-domain bundle build (ci-release-hardening #28).
+#
+# release-bundle.yml only exercises scripts/build-domain-bundles.sh on a TAG
+# push — so a layout/injection break (e.g. the rego source splits a lib noun
+# into a subdir keeping the same package, and the injection glob doesn't
+# descend → undefined-function errors at `opa build`) is caught only AFTER a
+# tag triggers the release, by which point the cut has already failed.
+#
+# This job runs the SAME source checkout + SAME build script against the
+# CURRENTLY-PINNED rego ref (policy-source.yaml) on every PR / push that touches
+# the build surface — minus signing + publishing. If the three domain bundles
+# don't `opa build` clean (or a test file leaks in), the PR fails here, long
+# before any tag is cut. It is the exact build half of release-bundle.yml.
+#
+# Note: the rego source is a PRIVATE in-org repo, so the checkout needs
+# POLICY_SOURCE_TOKEN (Contents:read on the source repo). If that secret is not
+# configured this job NO-OPS with a notice rather than hard-failing — same
+# opt-in pattern as the release workflow's cross-repo dispatch.
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/build-domain-bundles.sh'
+      - 'scripts/check-cross-domain-imports.py'
+      - 'bundle-domains.yaml'
+      - 'policy-source.yaml'
+      - '.github/workflows/bundle-dryrun.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/build-domain-bundles.sh'
+      - 'scripts/check-cross-domain-imports.py'
+      - 'bundle-domains.yaml'
+      - 'policy-source.yaml'
+      - '.github/workflows/bundle-dryrun.yml'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Override rego source ref to dry-run against (default: policy-source.yaml pin)'
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  bundle-dryrun:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+
+      - name: Resolve pinned rego source (repo + ref)
+        id: source
+        run: |
+          repo=$(python3 -c 'import yaml,pathlib;print(yaml.safe_load(pathlib.Path("policy-source.yaml").read_text())["source"]["repo"])')
+          ref=$(python3 -c 'import yaml,pathlib;print(yaml.safe_load(pathlib.Path("policy-source.yaml").read_text())["source"]["ref"])')
+          # workflow_dispatch override wins
+          if [ -n "${{ github.event.inputs.ref }}" ]; then ref="${{ github.event.inputs.ref }}"; fi
+          echo "repo=${repo}" >> "$GITHUB_OUTPUT"
+          echo "ref=${ref}"   >> "$GITHUB_OUTPUT"
+
+      - name: Gate on source token availability
+        id: gate
+        env:
+          POLICY_SOURCE_TOKEN: ${{ secrets.POLICY_SOURCE_TOKEN }}
+        run: |
+          if [ -z "${POLICY_SOURCE_TOKEN}" ]; then
+            echo "::notice::POLICY_SOURCE_TOKEN not set — skipping bundle dry-run (cannot read private rego source). Configure the secret to enable this gate."
+            echo "have_token=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "have_token=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout rego source @ pinned ref
+        if: steps.gate.outputs.have_token == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.source.outputs.repo }}
+          ref: ${{ steps.source.outputs.ref }}
+          path: rego_src
+          token: ${{ secrets.POLICY_SOURCE_TOKEN }}
+
+      - name: Install OPA
+        if: steps.gate.outputs.have_token == 'true'
+        run: |
+          OPA_VERSION="${OPA_VERSION:-1.12.2}"
+          curl -fsSL -o /usr/local/bin/opa \
+            "https://openpolicyagent.org/downloads/v${OPA_VERSION}/opa_linux_amd64_static"
+          chmod +x /usr/local/bin/opa
+          opa version
+
+      - name: Guard cross-domain references (common-bundle trip-wire)
+        if: steps.gate.outputs.have_token == 'true'
+        run: python3 scripts/check-cross-domain-imports.py rego_src
+
+      - name: Dry-run per-domain bundle build
+        if: steps.gate.outputs.have_token == 'true'
+        run: |
+          OUT="$(mktemp -d)"
+          # A throwaway tag — this build is never published.
+          bash scripts/build-domain-bundles.sh rego_src "$OUT" "dryrun-${GITHUB_SHA::7}"
+          echo "OUT=$OUT" >> "$GITHUB_ENV"
+
+      - name: Assert all three domains built + no test leak
+        if: steps.gate.outputs.have_token == 'true'
+        run: |
+          fail=0
+          for D in security compliance ot; do
+            B="$OUT/xc-aac-policies-${D}-dryrun-${GITHUB_SHA::7}.tar.gz"
+            if [ ! -f "$B" ]; then
+              echo "::error::domain '$D' bundle missing — build did not produce $B"
+              fail=1; continue
+            fi
+            n=$(tar tzf "$B" | grep -c '_test\.rego' || true)
+            if [ "$n" -ne 0 ]; then
+              echo "::error::domain '$D' bundle ships $n *_test.rego file(s) — tests must NEVER ship"
+              tar tzf "$B" | grep '_test\.rego'
+              fail=1
+            fi
+            echo "  $D: $(tar tzf "$B" | wc -l) files, ${n} test leaks"
+          done
+          [ "$fail" -eq 0 ] || { echo "::error::bundle dry-run gate failed"; exit 1; }
+          echo "Bundle dry-run gate PASSED — security/compliance/ot all build clean, no test leaks."
