@@ -210,4 +210,11 @@ source:
   # No new framework, no new controls, no fact_contract change → PATCH. Needs
   # xcomplai.aac_common >=1.28.0 (unchanged). fact_contract UNCHANGED (v1).
   #
-  ref: v3.3.1-edge.1
+  # v3.3.1-edge.2 (2026-06-16): PATCH-class increment (ADR-012) — perf optimization
+  # on top of v3.3.1-edge.1. Built from rego tag v3.3.1-edge.2 @ 4752a1b. Delta:
+  # (1) OPA audit eval perf (#84/#59, ADR-043) — aac/lib/linux/audit.rego tokenises
+  # audit rules ONCE → ~33% faster STIG eval; behavior-preserving (opa test green).
+  # No new framework, no new controls, no fact_contract change → PATCH. Per-domain
+  # bundle build dry-run verified green (security/compliance/ot). fact_contract v1.
+  #
+  ref: v3.3.1-edge.2
