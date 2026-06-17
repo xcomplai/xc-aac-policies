@@ -197,4 +197,17 @@ source:
   # producers gather Linux host-state via the existing aac_common nouns). cis_docker
   # gather needs xcomplai.aac_container (served-but-not-yet-baked into the core EE —
   # tracked separately, xc-aac-ee#75). fact_contract UNCHANGED (v1).
-  ref: v3.3.0-edge.1
+  # v3.3.1-edge.1 (2026-06-16): PATCH-class increment (ADR-012) — promotes to v3.3.1
+  # once soaked. Built from rego tag v3.3.1-edge.1 @ ae72063. Deltas accrued on v3
+  # after v3.3.0-edge.1 (@66b608e):
+  # (1) stig_rhel9 v2r8 maturity beta->ga (#58, ADR-046 B3) — the FIRST ga framework
+  # at launch. ga bar cleared (RUN-20260616-1): depth review PASS 423/423 machine-
+  # testable + live non-degenerate validation RUN on jih-compliance-20 (AAP job #109,
+  # PG row 423chk 181/242 43.00% assessment_contract/v1), opa test aac/ 379/379,
+  # eval 161ms. Metadata-only; catalog by_maturity/assessable derive from this field.
+  # (2) ADR-047 Phase 1 (#57) — aac/lib/linux file-per-noun registry split (internal
+  # refactor, no behavior change) paired with xc-aac-common gather noun registry (#34).
+  # No new framework, no new controls, no fact_contract change → PATCH. Needs
+  # xcomplai.aac_common >=1.28.0 (unchanged). fact_contract UNCHANGED (v1).
+  #
+  ref: v3.3.1-edge.1
