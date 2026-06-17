@@ -64,9 +64,15 @@ def add(p):
 # Shared → every bundle (domain-agnostic): plane libs + crosswalk (aac/lib/), the
 # catalog contract (aac/catalog/), and the report/derivation layer (aac/report/ —
 # debt scoring etc., on the assessment-output contract; ADR-016). Exclude tests.
-for p in sorted(glob.glob(os.path.join(aac, "lib", "*.rego"))
-                + glob.glob(os.path.join(aac, "catalog", "*.rego"))
-                + glob.glob(os.path.join(aac, "report", "*.rego"))):
+# Recurse (**): a lib noun may be a single file (aac/lib/windows.rego) OR a
+# file-per-noun subdir keeping the same package (aac/lib/linux/*.rego, package
+# aac.lib.linux — ADR-047 P1). A one-level glob silently drops the split bodies,
+# so the bundle fails opa build with undefined-function errors. catalog/report
+# recurse too: harmless today (flat) and future-proof if they split likewise.
+# The add() _test.rego filter still excludes co-located tests at any depth.
+for p in sorted(glob.glob(os.path.join(aac, "lib", "**", "*.rego"), recursive=True)
+                + glob.glob(os.path.join(aac, "catalog", "**", "*.rego"), recursive=True)
+                + glob.glob(os.path.join(aac, "report", "**", "*.rego"), recursive=True)):
     add(p)
 # Per-framework: route the whole framework dir (policy + metadata + register; a
 # preview stub has metadata + register only, no policy) by metadata.domain.
@@ -82,6 +88,12 @@ for f in out:
     print(f)
 PY
 )
+
+  # Hygiene gate: tests NEVER ship. The lib injection above already filters
+  # *_test.rego, but the domain `paths` copy (cp -r whole dirs) does not, so a
+  # co-located test under any path (e.g. benchmarks/.../cis_rhel9_test.rego)
+  # would otherwise ride along. Strip them from the assembled tree before build.
+  find "$asm" -name '*_test.rego' -delete
 
   # Write an explicit .manifest with revision + the per-namespace ROOTS this
   # bundle owns (the top-level data namespace of every package it contains, e.g.
