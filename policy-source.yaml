@@ -217,4 +217,9 @@ source:
   # No new framework, no new controls, no fact_contract change → PATCH. Per-domain
   # bundle build dry-run verified green (security/compliance/ot). fact_contract v1.
   #
-  ref: v3.3.1-edge.2
+  # (2) v3 -> main promotion (153 commits): benchmark-utility frameworks
+  # (stig_amazon_linux_2023 NET-NEW, cis_rhel9 deepened 10->22, stig_postgresql
+  # live-proven + sibling lib/gather) + Authoring SDK `xc author` (ADR-036) +
+  # core-freeze Phase A seam (ADR-052). NET-NEW framework => MINOR bump.
+  # opa test 582/582 + catalog/registry green on the promoted main (67faf0a).
+  ref: v3.4.0-edge.1
