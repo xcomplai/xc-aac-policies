@@ -58,7 +58,6 @@ domains:
       - frameworks/management
       - frameworks/financial
       - frameworks/privacy
-      - frameworks/compliance
       - frameworks/regulatory
       - frameworks/sovereignty
       - enforcement
