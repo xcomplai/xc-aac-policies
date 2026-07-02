@@ -61,6 +61,15 @@ domains:
       - frameworks/regulatory
       - frameworks/sovereignty
       - enforcement
+    # Co-load delegation TARGETS whose home domain is elsewhere but which a
+    # compliance framework REFERENCES at runtime (build-domain-bundles.sh injects
+    # policy + metadata ONLY — never the aac.catalog registration, so the target
+    # does NOT enter this domain's catalog/coverage). hipaa §164.312(a)/(b)/(d)
+    # host-state safeguards delegate to data.nist_800_53.rev5 (home domain:
+    # security); without co-loading it here the §164.312 host rows are degenerate
+    # (target undefined in the compliance bundle). ADR-010 §164.312 finish-out.
+    co_load_frameworks:
+      - nist_800_53/rev5
 
   # opa-ot (:8183) — NERC-CIP, AMI, IEC 62443, NIST 800-82, and governance
   # (AI governance, MCP).

@@ -53,7 +53,7 @@ for D in $domains; do
     [ -n "$rel" ] || continue
     mkdir -p "$asm/$(dirname "$rel")"
     cp "$SRC/$rel" "$asm/$rel"
-  done < <(python3 - "$SRC" "$D" <<'PY'
+  done < <(python3 - "$SRC" "$D" "$CONFIG" <<'PY'
 import sys, glob, os, re
 src, domain = sys.argv[1], sys.argv[2]
 aac = os.path.join(src, "aac")
@@ -84,6 +84,31 @@ for meta in sorted(glob.glob(os.path.join(aac, "frameworks", "*", "*", "metadata
         continue
     for f in sorted(glob.glob(os.path.join(os.path.dirname(meta), "*.rego"))):
         add(f)
+# Co-load delegation TARGETS (policy-only, NO catalog registration). A framework
+# in THIS domain may REFERENCE a framework whose home domain is another (e.g.
+# compliance/hipaa §164.312(a)/(b)/(d) delegate to data.nist_800_53.rev5, whose
+# home domain is security). That target package is otherwise undefined in this
+# bundle → the referencing rules yield degenerate rows. bundle-domains.yaml lists
+# such targets under domains.<D>.co_load_frameworks (["<fw>/<token>", ...]); we
+# co-load ONLY their policy + metadata namespaces so the reference RESOLVES, and
+# EXCLUDE their aac.catalog self-registration (register.rego / any `package
+# aac.catalog` file) so the target does NOT leak into THIS domain's catalog (and
+# thus its generated coverage). The target's home-domain routing above stays the
+# SOLE owner of its catalog entry. Co-located *_test.rego never ship (add() drops
+# them). Built lockstep from the same source release, so no drift.
+import yaml as _yaml
+_cfg = _yaml.safe_load(open(sys.argv[3], encoding="utf-8"))
+_CATPKG = re.compile(r'^\s*package\s+aac\.catalog\b', re.M)
+for rel in (_cfg["domains"].get(domain, {}).get("co_load_frameworks") or []):
+    fdir = os.path.join(aac, "frameworks", rel)
+    if not os.path.isdir(fdir):
+        sys.stderr.write("::warning::co_load_frameworks: '%s' not found under aac/frameworks — skipped\n" % rel)
+        continue
+    for f in sorted(glob.glob(os.path.join(fdir, "*.rego"))):
+        head = open(f, encoding="utf-8", errors="ignore").read(4096)
+        if _CATPKG.search(head):   # skip aac.catalog registration → no catalog leak
+            continue
+        add(f)                     # add() still drops *_test.rego + missing
 for f in out:
     print(f)
 PY
