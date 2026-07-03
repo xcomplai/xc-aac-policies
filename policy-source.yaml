@@ -222,4 +222,14 @@ source:
   # live-proven + sibling lib/gather) + Authoring SDK `xc author` (ADR-036) +
   # core-freeze Phase A seam (ADR-052). NET-NEW framework => MINOR bump.
   # opa test 582/582 + catalog/registry green on the promoted main (67faf0a).
-  ref: v3.4.0-edge.1
+  #
+  # (3) ADR-010 §164.312 finish-out (2026-07-03): bump past v3.4.0-edge.1 to pick
+  # up the hipaa dual-plane host-state delegation (xc-rego-policies #109, 8d29bd0 —
+  # §164.312(a)/(b)/(d) → nist_800_53 Rev5 AC/AU/IA over framework_facts). The
+  # v3.4.0-edge.1 tag PREDATES it, so a bundle built from that pin ships a hipaa
+  # producer WITHOUT the host delegation AND (paired with bundle-domains.yaml #32
+  # co_load_frameworks: nist_800_53/rev5) leaves /v1/data/hipaa/v2013/compliance_report
+  # unable to resolve the delegated host safeguards. Pinned to the current rego main
+  # HEAD (478ca5a, includes #109). No producer code change — this is a DEPLOY-side
+  # pin refresh so the released compliance bundle actually contains the shipped fix.
+  ref: 478ca5a6d4c00d65faa0ca140e262fcd5cc1f51d
