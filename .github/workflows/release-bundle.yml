@@ -36,9 +36,14 @@ permissions:
   id-token: write   # to mint the GitHub OIDC token cosign uses for keyless signing
   packages: write   # to push the OCI mirror to ghcr.io/xcomplai/xc-aac-policies
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout this repo (for policy-source.yaml)
         uses: actions/checkout@v4

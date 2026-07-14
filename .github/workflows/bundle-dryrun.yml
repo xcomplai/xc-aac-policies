@@ -44,9 +44,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   bundle-dryrun:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout this repo
         uses: actions/checkout@v4
