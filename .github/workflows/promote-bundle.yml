@@ -37,9 +37,14 @@ permissions:
   packages: write   # cosign copy the OCI mirror tag on ghcr.io
   # NOTE: no id-token — promotion COPIES existing signatures, it never re-signs.
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   promote:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       OCI_REPO: ghcr.io/${{ github.repository_owner }}/xc-aac-policies
       ISSUER: https://token.actions.githubusercontent.com
