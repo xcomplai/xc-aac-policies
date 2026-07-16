@@ -46,7 +46,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout this repo (for policy-source.yaml)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Resolve release tag
         id: tag
@@ -79,7 +79,7 @@ jobs:
       # with Contents:read on the source repo, stored as a repo/org secret here.
       # Create it before the next tagged release, or this checkout 404s/403s.
       - name: Checkout rego source @ pinned ref
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ${{ steps.source.outputs.repo }}
           ref: ${{ steps.source.outputs.ref }}
