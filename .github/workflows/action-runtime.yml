@@ -1,0 +1,40 @@
+name: action-runtime
+
+# Anti-regression guard for the 2026-07-16 node24 sweep. THIN CALLER —
+# consume-don't-fork: the resolution logic lives ONLY in xc-platform
+# (scripts/check_action_runtime.py), so a fix flows here without 13 copies
+# drifting apart.
+#
+# It resolves every `uses:` ref to its OWN action.yml `runs.using:` and fails on
+# node20/node16. A version number does not tell you the runtime —
+# actions/upload-artifact@v5 is the newest major and is STILL node20 — so never
+# "fix" a hit by bumping the major; resolve the candidate ref first.
+#
+# Genuinely-stranded refs take a documented waiver: append
+# `# node-runtime: allow` to the `uses:` line WITH a reason.
+#
+# PATHS-GATED: only runs when workflow/action files change, so steady-state CI
+# cost is ~zero — it does NOT run on a normal PR. Guard job measures ~10s.
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - '.github/actions/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/**'
+      - '.github/actions/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: action-runtime-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guard:
+    uses: xcomplai/xc-platform/.github/workflows/action-runtime-check.yml@main
