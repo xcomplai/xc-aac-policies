@@ -54,7 +54,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout this repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Resolve pinned rego source (repo + ref)
         id: source
@@ -80,7 +80,7 @@ jobs:
 
       - name: Checkout rego source @ pinned ref
         if: steps.gate.outputs.have_token == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ${{ steps.source.outputs.repo }}
           ref: ${{ steps.source.outputs.ref }}
