@@ -232,4 +232,4 @@ source:
   # unable to resolve the delegated host safeguards. Pinned to the current rego main
   # HEAD (478ca5a, includes #109). No producer code change — this is a DEPLOY-side
   # pin refresh so the released compliance bundle actually contains the shipped fix.
-  ref: 478ca5a6d4c00d65faa0ca140e262fcd5cc1f51d
+  ref: v3.6.0-edge.1
