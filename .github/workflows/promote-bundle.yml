@@ -61,6 +61,18 @@ jobs:
           esac
           echo "Promoting $SRC -> $DST"
 
+      # The promote itself needs no repo — it moves RELEASE ASSETS and OCI tags.
+      # The tag-hygiene step at the end does need one script, so check the repo
+      # out into its own path: the asset steps work inside ./promote and must
+      # not have repo files appear underneath them.
+      - name: Check out the tag-hygiene script
+        if: ${{ github.event.inputs.prune != 'off' }}
+        uses: actions/checkout@v4
+        with:
+          path: _ci
+          sparse-checkout: scripts
+          sparse-checkout-cone-mode: false
+
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
         with:
@@ -156,4 +168,11 @@ jobs:
           ARGS=( --org "${{ github.repository_owner }}" --package xc-aac-policies --keep-edge "${{ github.event.inputs.keep_edge }}" )
           [ "$MODE" = "apply" ] && ARGS+=( --apply )
           echo "Tag-hygiene mode: ${MODE}"
-          bash scripts/prune-oci-tags.sh "${ARGS[@]}"
+          SCRIPT=_ci/scripts/prune-oci-tags.sh
+          # Fail loudly if the checkout did not land it. Skipping the prune
+          # because the script is missing is how this went unnoticed: exit 127
+          # reddened a promote that had actually fully succeeded, and the
+          # obvious "fix" is to swallow it, which would keep tag hygiene
+          # permanently dead while the step reported green.
+          [ -f "${SCRIPT}" ] || { echo "::error::${SCRIPT} missing — checkout step did not run"; exit 1; }
+          bash "${SCRIPT}" "${ARGS[@]}"
